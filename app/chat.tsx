@@ -278,7 +278,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
       {stage === "welcome" ? (
         <main className="welcome">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="IndabaAI logo" className="welcome-logo" />
+          <img src="/image.png" alt="IndabaAI logo" className="welcome-logo" />
           <h1>
             From your business to something you can <em>post today</em>.
           </h1>
