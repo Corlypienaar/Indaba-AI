@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import TopBar from "./topbar";
 
 type Question = { text: string; optional: boolean };
 type Msg = { role: "app" | "user"; text: string };
@@ -61,7 +63,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
     setMessages([
       {
         role: "app",
-        text: "Lekker, let's do this. A few quick questions about your business — answer in your own words, short is fine.",
+        text: "Lekker, let's do this. A few quick questions about your business. Answer in your own words, short is fine.",
       },
       { role: "app", text: required[0].text },
     ]);
@@ -132,7 +134,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
   async function runAdsAndImage() {
     setStage("ads");
     setRetryStage("ads");
-    addApp("Locked in. Writing your three ads now — this takes a few seconds...");
+    addApp("Locked in. Writing your three ads now. This takes a few seconds...");
     const adsText = await callApi("ads", answers, { profile, offer });
     if (!adsText) {
       setStage("error");
@@ -151,7 +153,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
     }
     setImagePrompt(imgText);
     addApp(imgText);
-    addApp("That's everything — scroll down for your results with copy buttons.");
+    addApp("That's everything. Scroll down for your results with copy buttons.");
     setStage("results");
   }
 
@@ -167,7 +169,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
         if (imgText) {
           setImagePrompt(imgText);
           addApp(imgText);
-          addApp("That's everything — scroll down for your results with copy buttons.");
+          addApp("That's everything. Scroll down for your results with copy buttons.");
           setStage("results");
         } else {
           setStage("error");
@@ -188,7 +190,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
       if (looksLikeNonsense(text) && !reasked) {
         setReasked(true);
         addApp(
-          "No stress — even a rough answer helps. Let me ask that again more simply: " +
+          "No stress, even a rough answer helps. Here is that question again, more simply: " +
             currentQ.text +
             " A few words is fine."
         );
@@ -215,7 +217,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
         return;
       }
 
-      addApp("Thanks — give me a moment to pull that together...");
+      addApp("Thanks. Give us a moment to pull that together...");
       await runProfile(newAnswers);
       return;
     }
@@ -267,13 +269,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
 
   return (
     <div className="shell">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">Indaba</span>
-          <span className="brand-ai">AI</span>
-        </div>
-        <div className="tagline">Powered by Meta Llama</div>
-      </header>
+      <TopBar />
 
       {stage === "welcome" ? (
         <main className="welcome">
@@ -284,15 +280,15 @@ export default function Chat({ questions }: { questions: Question[] }) {
           </h1>
           <p>
             Answer a few questions in plain English. IndabaAI turns them into a sharp
-            offer, three ready-to-post Meta ads, and an image prompt for Meta AI —
-            built for South African small businesses.
+            offer, three ready-to-post Meta ads, and an image prompt for Meta AI,
+            built for small businesses.
           </p>
           <button className="btn primary big" onClick={start}>
             Start
           </button>
           <p className="fineprint">
-            No sign-up. Please don&apos;t share ID numbers, bank details or client names
-            — we&apos;ll never ask for them.
+            No sign-up. Please do not share ID numbers, bank details or client names.
+            We will never ask for them.
           </p>
         </main>
       ) : (
@@ -333,7 +329,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
                   className="btn ghost"
                   onClick={() => {
                     setStage("profile_fixing");
-                    addApp("No problem — what should I fix?");
+                    addApp("No problem. What should we fix?");
                     setTimeout(() => inputRef.current?.focus(), 50);
                   }}
                 >
@@ -345,13 +341,13 @@ export default function Chat({ questions }: { questions: Question[] }) {
             {stage === "offer_confirm" && !loading && (
               <div className="choices">
                 <button className="btn primary" onClick={runAdsAndImage}>
-                  Lock it in — write my ads
+                  Lock it in and write my ads
                 </button>
                 <button
                   className="btn ghost"
                   onClick={() => {
                     setStage("offer_adjusting");
-                    addApp("Sure — what would you like to change?");
+                    addApp("Sure. What would you like to change?");
                     setTimeout(() => inputRef.current?.focus(), 50);
                   }}
                 >
@@ -420,9 +416,14 @@ function Results({
       <ResultBlock title="Your offer" text={offer} />
       <ResultBlock title="Your three Meta ads" text={ads} />
       <ResultBlock title="Your Meta AI image prompt" text={imagePrompt} />
-      <button className="btn ghost" onClick={onStartOver}>
-        Start over
-      </button>
+      <div className="choices">
+        <button className="btn ghost" onClick={onStartOver}>
+          Start over
+        </button>
+        <Link href="/" className="btn primary">
+          Back to home
+        </Link>
+      </div>
     </div>
   );
 }
