@@ -16,14 +16,16 @@ export default function Home() {
       <TopBar />
       <main className="home">
         <section className="hero">
-          <h1>
-            Practical AI help for <em>South African small businesses</em>.
-          </h1>
+          <p className="eyebrow">
+            Made for South African small businesses and entrepreneurs. Free. No sign-up.
+          </p>
+          <h1>Start or grow your business with AI, from today.</h1>
           <p className="home-sub">
-            Answer a few simple questions and we will write your Facebook and Instagram
-            ads, check whether your prices make you money, or help you test a business
-            idea, one step at a time. Free, no sign-up, and honest when something looks
-            weak.
+            You don&apos;t need to master AI. You just need to start. Answer a few
+            simple questions and IndabaAI drafts your ads, helps you review your
+            pricing or tests your idea in a few minutes. What felt out of reach for a
+            small business is now one conversation away, and IndabaAI guides you
+            through every step.
           </p>
           <Link href="/ads" className="btn primary big">
             Write my first ad
@@ -97,7 +99,6 @@ export default function Home() {
             share ID numbers, bank details or client names. We will never ask for them, and you can
             use labels like Client A instead.
           </p>
-          <p className="fineprint">Powered by Meta Llama 3.3 70B. Not affiliated with or endorsed by Meta.</p>
         </footer>
       </main>
     </div>

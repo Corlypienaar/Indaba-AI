@@ -533,6 +533,15 @@ a.btn {
   font-size: 30px;
 }
 
+.eyebrow {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--clay);
+  margin: 0;
+}
+
 .hero .btn.big {
   align-self: flex-start;
 }
