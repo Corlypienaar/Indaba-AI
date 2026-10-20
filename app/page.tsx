@@ -97,7 +97,7 @@ export default function Home() {
             share ID numbers, bank details or client names. We will never ask for them, and you can
             use labels like Client A instead.
           </p>
-          <p className="fineprint">Powered by Meta Llama. Not affiliated with or endorsed by Meta.</p>
+          <p className="fineprint">Powered by Meta Llama 4 Maverick. Not affiliated with or endorsed by Meta.</p>
         </footer>
       </main>
     </div>
