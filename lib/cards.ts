@@ -61,6 +61,7 @@ const prices: Card = {
   intro: [
     "Many owners work hard and wonder where the money went. In about 5 minutes we will look at what you charge, what it really costs you, and what you keep.",
     "Rough numbers are fine. Use labels like Client A instead of real names. We never ask for ID numbers or bank details.",
+    "This is a draft to think with, worked out from your own numbers. It is not financial advice.",
   ],
   questions: [
     {
@@ -692,6 +693,7 @@ const decision: Card = {
   minutes: 5,
   intro: [
     "A good thinking partner asks the questions you have not asked yourself. In about 5 minutes we will look at a decision from all sides. We will be honest with you.",
+    "This is a thinking partner, not legal or financial advice.",
   ],
   questions: [
     {

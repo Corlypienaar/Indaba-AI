@@ -28,8 +28,8 @@ export default function Home() {
           <Link href="/ads" className="btn primary big">
             Write my first ad
           </Link>
-          <Link href={LEARN.href} className="quiet-link">
-            {LEARN.line}
+          <Link href={LEARN.href} className="btn ghost">
+            New to AI? Start here
           </Link>
         </section>
 

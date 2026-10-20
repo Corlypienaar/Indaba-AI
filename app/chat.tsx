@@ -347,7 +347,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
             From your business to something you can <em>post today</em>.
           </h1>
           <p>
-            Answer a few questions in plain English. IndabaAI turns them into a sharp
+            Answer a few questions in your own words. IndabaAI turns them into a sharp
             offer, three Meta ad drafts you can edit and post, and an image prompt for
             Meta AI. About 5 minutes.
           </p>
@@ -566,13 +566,20 @@ function ResultBlock({ title, text }: { title: string; text: string }) {
     }
   }
 
+  const waHref = "https://wa.me/?text=" + encodeURIComponent(text);
+
   return (
     <div className="result-block">
       <div className="result-head">
         <h3>{title}</h3>
-        <button className="btn small" onClick={copy}>
-          {copied ? "Copied ✓" : "Copy"}
-        </button>
+        <div className="result-actions">
+          <a className="btn small" href={waHref} target="_blank" rel="noopener noreferrer">
+            Send to my WhatsApp
+          </a>
+          <button className="btn small" onClick={copy}>
+            {copied ? "Copied ✓" : "Copy"}
+          </button>
+        </div>
       </div>
       <pre>{text}</pre>
     </div>

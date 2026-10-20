@@ -35,13 +35,21 @@ export default function CopyBlock({
     }
   }
 
+  // Opens WhatsApp with the text ready to send; the owner picks who gets it.
+  const waHref = "https://wa.me/?text=" + encodeURIComponent(text);
+
   const inner = (
     <>
       <div className="result-head">
         <h3>{title}</h3>
-        <button className="btn small" onClick={copy}>
-          {copied ? "Copied ✓" : "Copy"}
-        </button>
+        <div className="result-actions">
+          <a className="btn small" href={waHref} target="_blank" rel="noopener noreferrer">
+            Send to my WhatsApp
+          </a>
+          <button className="btn small" onClick={copy}>
+            {copied ? "Copied ✓" : "Copy"}
+          </button>
+        </div>
       </div>
       <pre>{text}</pre>
     </>

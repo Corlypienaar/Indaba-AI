@@ -687,3 +687,20 @@ a.btn {
   font-size: 13px;
   color: #6b6890;
 }
+
+.result-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.result-head {
+  align-items: flex-start;
+  gap: 8px;
+}
+
+a.btn.small {
+  text-decoration: none;
+  line-height: 1.2;
+}
