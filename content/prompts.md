@@ -133,6 +133,6 @@ Show all of the above (profile, offer, three ads, image prompt) with a **Copy** 
 ## MODEL AND HOSTING (for the Claude build brief and the app's backend config)
 
 - Provider: **OpenRouter**
-- Model: `meta-llama/llama-3.3-70b-instruct:free`
+- Model: `meta-llama/llama-3.3-70b-instruct`
 - Base URL: `https://openrouter.ai/api/v1` (OpenAI-compatible)
 - Env var name: `OPENROUTER_API_KEY`
