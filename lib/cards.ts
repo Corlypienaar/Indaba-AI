@@ -7,6 +7,7 @@
 
 export type Question = {
   id: string;
+  kind?: NumberKind; // for number questions: how to read and sanity-check the value
   text: string;
   why?: string; // one line under the question
   help: string; // shown when the owner taps "I am not sure what this means"
@@ -43,11 +44,18 @@ export const HELP_LEAD_IN =
 export const CLOSING_LINE =
   "You looked at something many owners keep putting off. That took courage. Pick one small step from this list and do it this month. Come back when you are ready for the next one.";
 
-const n = (v: string) => {
-  const x = parseFloat(String(v).replace(/[^\d.,-]/g, "").replace(",", "."));
-  return isNaN(x) ? null : x;
+import { parseNumber, rand, type NumberKind } from "./numbers";
+
+const n = (v: string, kind: NumberKind = "money") => parseNumber(v || "", kind);
+// For prompts: the clean number when we understood one, otherwise the owner's own words.
+const money = (v: string) => {
+  const x = n(v, "money");
+  return x === null ? or(v, "?") : "R" + Math.round(x).toLocaleString("en-ZA");
 };
-const rand = (x: number) => "R" + Math.round(x).toLocaleString("en-ZA");
+const plain = (v: string, kind: NumberKind) => {
+  const x = n(v, kind);
+  return x === null ? or(v, "?") : String(x);
+};
 const or = (v: string, fallback: string) => (v && v.trim() ? v.trim() : fallback);
 
 // ---------------------------------------------------------------------------
@@ -73,12 +81,14 @@ const prices: Card = {
     },
     {
       id: "price",
+      kind: "money",
       text: "What do you usually charge for one job or one sale? (in rand)",
       help: "Pick a typical one. If your prices vary a lot, use the one you sell most.",
       type: "number",
     },
     {
       id: "cost",
+      kind: "money",
       text: "What does it cost you to deliver that one job or sale? (in rand)",
       why: "The money you collect is not the money you keep.",
       help: "Take one recent job and add up everything that went into it: materials or stock, helpers, fuel, data, card fees, power, and anything lost or damaged. If you are not sure, skip it and we will flag it.",
@@ -87,6 +97,7 @@ const prices: Card = {
     },
     {
       id: "overheads",
+      kind: "money",
       text: "Are there monthly costs you have not counted yet, like rent, power, phone, insurance, tools or software? Roughly how much a month? (in rand, or 0)",
       why: "These are the costs that quietly eat a busy business.",
       help: "Look at last month's bank statement and add up the amounts that go out every month no matter how many jobs you did.",
@@ -94,12 +105,14 @@ const prices: Card = {
     },
     {
       id: "hours",
+      kind: "hours",
       text: "About how many hours of your own time does one job or sale take, from first message to getting paid?",
       help: "Include quotes, travel, admin and follow-up. Estimates are fine.",
       type: "number",
     },
     {
       id: "count",
+      kind: "count",
       text: "About how many of these do you sell in a normal month?",
       help: "Count last month, or a typical month if last month was unusual.",
       type: "number",
@@ -129,8 +142,8 @@ const prices: Card = {
   calculate(a) {
     const price = n(a.price);
     const cost = n(a.cost);
-    const hours = n(a.hours);
-    const count = n(a.count);
+    const hours = n(a.hours, "hours");
+    const count = n(a.count, "count");
     const overheads = n(a.overheads) ?? 0;
     const c: Calc = {};
     if (price !== null) c["Price per job or sale"] = rand(price);
@@ -163,7 +176,7 @@ const prices: Card = {
     `Do not state what other businesses charge. Say "check what three similar businesses charge" and explain how. Suggest at most one price test, for example a higher price with new customers first, and describe the risk honestly. Do not give tax advice.`,
   maxWords: 300,
   deeper: (a, c) =>
-    `Act as an expert business analyst who specialises in pricing and profit for small businesses. I run a ${or(a.what, "small business")}. I charge about R${or(a.price, "?")} per job or sale. It costs me about R${or(a.cost, "?")} to deliver. My monthly costs are about R${or(a.overheads, "?")}. One job takes about ${or(a.hours, "?")} hours of my time, and I do about ${or(a.count, "?")} a month. I last raised my prices: ${or(a.when, "not sure")}. I pay myself: ${or(a.pay, "not sure")}. My customers get this result: ${or(a.result, "not sure")}.\n` +
+    `Act as an expert business analyst who specialises in pricing and profit for small businesses. I run a ${or(a.what, "small business")}. I charge about ${money(a.price)} per job or sale. It costs me about ${money(a.cost)} to deliver. My monthly costs are about ${money(a.overheads)}. One job takes about ${plain(a.hours, "hours")} hours of my time, and I do about ${plain(a.count, "count")} a month. I last raised my prices: ${or(a.when, "not sure")}. I pay myself: ${or(a.pay, "not sure")}. My customers get this result: ${or(a.result, "not sure")}.\n` +
     (Object.keys(c).length ? `My numbers so far: ${calcLines(c, "; ")}.\n` : "") +
     `Please tell me honestly whether my pricing is right. Do not just agree with me. First tell me what is working. Then show me where I may be undercharging or losing money, using my numbers. Then give me three practical options to try this month, with the risk of each. Ask me questions one at a time if you need more information. Use plain English. Do not guess market prices. If you mention tax or legal rules, tell me to check with my accountant or tax authority.`,
   nextSlug: "blindspots",
@@ -374,12 +387,14 @@ const idea: Card = {
     },
     {
       id: "profit",
+      kind: "money",
       text: "How much profit would you make on one sale? (in rand)",
       help: "What you would charge minus what it would cost you to deliver one.",
       type: "number",
     },
     {
       id: "target",
+      kind: "money",
       text: "How much do you need to earn from this each month to make it worthwhile? (in rand)",
       help: "Be honest about the number that would make this worth your time.",
       type: "number",
@@ -430,7 +445,7 @@ const idea: Card = {
     `Give one small test the owner can do in 48 hours, with a clear success measure, such as three people agreeing to pay a small amount. Never push anyone to quit a job or spend savings. Do not give legal advice; if a licence may be needed, say how to find out.`,
   maxWords: 300,
   deeper: (a, c) =>
-    `Act as an honest, practical advisor helping me test a business idea cheaply before I spend money. Do not just agree with me. My idea: ${or(a.idea, "?")}. The problem it solves and who has it: ${or(a.who, "?")}. Where these people already spend money and time: ${or(a.demand, "?")}. My profit per sale would be about R${or(a.profit, "?")}. I need about R${or(a.target, "?")} a month, which is roughly ${c["Sales needed per month"] || "?"}. The cheapest test I can think of: ${or(a.test, "?")}. Asking people to pay a small amount first: ${or(a.presell, "?")}. Licence or registration needed: ${or(a.licence, "not sure")}.\n` +
+    `Act as an honest, practical advisor helping me test a business idea cheaply before I spend money. Do not just agree with me. My idea: ${or(a.idea, "?")}. The problem it solves and who has it: ${or(a.who, "?")}. Where these people already spend money and time: ${or(a.demand, "?")}. My profit per sale would be about ${money(a.profit)}. I need about ${money(a.target)} a month, which is roughly ${c["Sales needed per month"] || "?"}. The cheapest test I can think of: ${or(a.test, "?")}. Asking people to pay a small amount first: ${or(a.presell, "?")}. Licence or registration needed: ${or(a.licence, "not sure")}.\n` +
     `Please start with what is promising. Then ask me the five toughest questions I should answer before I invest, one at a time. After that, help me design a 48-hour test with a clear way to tell whether it worked. Use plain English. Do not push me to quit a job or spend savings. Remind me to check licence and registration rules for my kind of business.`,
   nextSlug: "prices",
 };
@@ -467,6 +482,7 @@ const time: Card = {
     },
     {
       id: "takehome",
+      kind: "money",
       text: "About how much do you take home from the business each month? (in rand)",
       why: "This tells us what an hour of your time is worth, so we can see which jobs cost more than they are worth.",
       help: "Use a rough average. If it changes a lot, use a normal month.",
@@ -474,6 +490,7 @@ const time: Card = {
     },
     {
       id: "hours",
+      kind: "hours",
       text: "About how many hours do you work in a normal week?",
       help: "Count everything: jobs, admin, driving, messages at night.",
       type: "number",
@@ -494,7 +511,7 @@ const time: Card = {
   ],
   calculate(a) {
     const take = n(a.takehome);
-    const hours = n(a.hours);
+    const hours = n(a.hours, "hours");
     const c: Calc = {};
     if (take !== null && hours && hours > 0) {
       c["Your hours a month"] = Math.round(hours * 4.3) + " hours";
@@ -528,7 +545,7 @@ function parseRows(text: string): Row[] {
     .filter(Boolean)
     .map((l) => {
       const parts = l.split(",").map((x) => x.trim());
-      const nums = parts.map(n).filter((x): x is number => x !== null);
+      const nums = parts.map((x) => n(x)).filter((x): x is number => x !== null);
       const words = parts.filter((x) => n(x) === null);
       const lower = l.toLowerCase();
       return {
@@ -627,12 +644,14 @@ const repeat: Card = {
     },
     {
       id: "times",
+      kind: "times",
       text: "How many times a year does a typical customer buy from you?",
       help: "Once, twice, every month? A rough number is fine.",
       type: "number",
     },
     {
       id: "sale",
+      kind: "money",
       text: "What is a normal sale worth? (in rand)",
       help: "A typical job or basket, not your biggest one.",
       type: "number",
@@ -661,7 +680,7 @@ const repeat: Card = {
     },
   ],
   calculate(a) {
-    const times = n(a.times);
+    const times = n(a.times, "times");
     const sale = n(a.sale);
     const c: Calc = {};
     if (times !== null && sale !== null) {
@@ -673,12 +692,12 @@ const repeat: Card = {
   role:
     "You are a practical advisor who helps small businesses grow through the customers they already have.",
   task: (a, c) =>
-    `The owner sells: ${or(a.what, "not given")}. A typical customer buys ${or(a.times, "?")} times a year, and a normal sale is R${or(a.sale, "?")}. Numbers calculated by the app: ${calcLines(c, "; ")}. Best customers need next: ${or(a.next, "not given")}. Last offer to past customers: ${or(a.lastoffer, "not given")}. Follows up quotes: ${or(a.followup, "not given")}.\n\n` +
+    `The owner sells: ${or(a.what, "not given")}. A typical customer buys ${plain(a.times, "times")} times a year, and a normal sale is ${money(a.sale)}. Numbers calculated by the app: ${calcLines(c, "; ")}. Best customers need next: ${or(a.next, "not given")}. Last offer to past customers: ${or(a.lastoffer, "not given")}. Follows up quotes: ${or(a.followup, "not given")}.\n\n` +
     `Start with what is working. Then suggest three or four natural next offers that existing customers would likely say yes to. For each: what it is, which type of customer it suits, why it fits, and one line to raise it naturally. Say honestly if an idea looks weak, and be honest if their follow-up or last-offer answer is costing them sales. ` +
     `Then write one short message (under 100 words) to reconnect with a past customer. No pressure and no pitch. Avoid "just checking in" and "it has been a while". No aggressive sales language. Give one thing to do this week.`,
   maxWords: 350,
   deeper: (a) =>
-    `Act as a practical advisor for small businesses. Do not just agree with me. I sell ${or(a.what, "?")}. A typical customer buys ${or(a.times, "?")} times a year, and a normal sale is about R${or(a.sale, "?")}. My best customers usually need this next: ${or(a.next, "?")}. I last made an offer to past customers: ${or(a.lastoffer, "?")}. I follow up on quotes: ${or(a.followup, "?")}.\n` +
+    `Act as a practical advisor for small businesses. Do not just agree with me. I sell ${or(a.what, "?")}. A typical customer buys ${plain(a.times, "times")} times a year, and a normal sale is about ${money(a.sale)}. My best customers usually need this next: ${or(a.next, "?")}. I last made an offer to past customers: ${or(a.lastoffer, "?")}. I follow up on quotes: ${or(a.followup, "?")}.\n` +
     `Show me three or four natural next things my existing customers would likely say yes to. For each, tell me why it fits, which customers it suits, and the simplest way to raise it. If an idea is weak, say so. Then help me write a short, warm message to a customer I have not spoken to in a while, under 100 words, with no pitch. Ask me questions first if anything is missing.`,
   nextSlug: "whatsapp",
 };

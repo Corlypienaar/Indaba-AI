@@ -5,6 +5,7 @@ import Link from "next/link";
 import TopBar from "../topbar";
 import CopyBlock from "../copyblock";
 import { MENU } from "@/lib/menu";
+import { parseNumber, rand, AI_NUMBERS_CAUTION } from "@/lib/numbers";
 import {
   getCard,
   type Answers,
@@ -19,7 +20,7 @@ import {
 // the app works out the numbers, and Llama answers as the expert for that card.
 
 type Msg = { role: "app" | "user" | "note"; text: string };
-type Stage = "intro" | "asking" | "thinking" | "result" | "error";
+type Stage = "intro" | "asking" | "confirm" | "fixing" | "thinking" | "result" | "error";
 
 export default function Guided({ slug }: { slug: string }) {
   const card = getCard(slug)!;
@@ -35,6 +36,9 @@ export default function Guided({ slug }: { slug: string }) {
   const [errorText, setErrorText] = useState("");
   const [result, setResult] = useState("");
   const [calc, setCalc] = useState<Calc>({});
+  const [finalAnswers, setFinalAnswers] = useState<Answers>({});
+  const [finalSkipped, setFinalSkipped] = useState<string[]>([]);
+  const [fixId, setFixId] = useState<string>("");
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -113,13 +117,58 @@ export default function Guided({ slug }: { slug: string }) {
       return;
     }
 
-    const c = card.calculate(finalAnswers);
+    setFinalAnswers(finalAnswers);
+    setFinalSkipped(finalSkipped);
+
+    const numberQs = card.questions.filter((q) => q.type === "number" && finalAnswers[q.id]);
+    if (numberQs.length) {
+      add("app", "Here is what we understood from your answers:\n" + understoodLines(finalAnswers) + "\n\nIs that right? Numbers can be read wrongly, so please check before we work anything out.");
+      setStage("confirm");
+      return;
+    }
+    await calculateAndRun(finalAnswers, finalSkipped);
+  }
+
+  function understoodLines(a: Answers): string {
+    return card.questions
+      .filter((q) => q.type === "number" && a[q.id])
+      .map((q) => {
+        const v = parseNumber(a[q.id], q.kind || "money");
+        const shown = v === null ? "not understood, please fix" : q.kind === "money" || !q.kind ? rand(v) : String(v);
+        return `${shortLabel(q)}: ${shown}`;
+      })
+      .join("\n");
+  }
+
+  function shortLabel(q: { id: string; text: string }): string {
+    const first = q.text.split("?")[0].replace(/^\(Optional\)\s*/i, "");
+    return first.length > 70 ? first.slice(0, 67) + "..." : first;
+  }
+
+  async function calculateAndRun(a: Answers, s: string[]) {
+    const c = card.calculate(a);
     setCalc(c);
     if (Object.keys(c).length) {
       add("app", "Your numbers, worked out by the app:\n" + Object.entries(c).map(([k, v]) => `${k}: ${v}`).join("\n"));
+      add("note", AI_NUMBERS_CAUTION);
     }
     add("app", "Thanks. Give us a moment to look at this properly...");
-    await run(finalAnswers, c, finalSkipped);
+    await run(a, c, s);
+  }
+
+  function startFix() {
+    setStage("fixing");
+    add("app", "Which one should we fix? Tap it, then type the right number.");
+  }
+
+  function fixAnswer(value: string) {
+    const updated = { ...finalAnswers, [fixId]: value };
+    setFinalAnswers(updated);
+    setAnswers(updated);
+    add("user", value);
+    setFixId("");
+    add("app", "Here is what we understood now:\n" + understoodLines(updated) + "\n\nIs that right?");
+    setStage("confirm");
   }
 
   async function run(a: Answers, c: Calc, s: string[]) {
@@ -157,6 +206,10 @@ export default function Guided({ slug }: { slug: string }) {
     const text = input.trim();
     if (!text || loading) return;
     setInput("");
+    if (stage === "fixing" && fixId) {
+      fixAnswer(text);
+      return;
+    }
     answer(text);
   }
 
@@ -254,6 +307,37 @@ export default function Guided({ slug }: { slug: string }) {
               </>
             )}
 
+            {stage === "confirm" && !loading && (
+              <div className="chips">
+                <button className="btn primary" onClick={() => calculateAndRun(finalAnswers, finalSkipped)}>
+                  Yes, work it out
+                </button>
+                <button className="chip" onClick={startFix}>
+                  Fix a number
+                </button>
+              </div>
+            )}
+
+            {stage === "fixing" && !loading && !fixId && (
+              <div className="chips">
+                {card.questions
+                  .filter((q) => q.type === "number")
+                  .map((q) => (
+                    <button
+                      key={q.id}
+                      className="chip"
+                      onClick={() => {
+                        setFixId(q.id);
+                        add("app", shortLabel(q) + "? Type the number.");
+                        setTimeout(() => inputRef.current?.focus(), 50);
+                      }}
+                    >
+                      {shortLabel(q)}
+                    </button>
+                  ))}
+              </div>
+            )}
+
             {loading && (
               <div className="bubble app typing">
                 IndabaAI is thinking
@@ -277,6 +361,9 @@ export default function Guided({ slug }: { slug: string }) {
             {stage === "result" && (
               <div className="results">
                 {result && <CopyBlock title="Your result" text={result} />}
+                {result && Object.keys(calc).length > 0 && (
+                  <p className="fineprint">{AI_NUMBERS_CAUTION}</p>
+                )}
                 <div className="result-block deeper">
                   <p>
                     Want more detail? Copy this prompt, add any extra information, and paste it
@@ -305,14 +392,14 @@ export default function Guided({ slug }: { slug: string }) {
             <div ref={bottomRef} />
           </div>
 
-          {stage === "asking" && (q.type === "text" || q.type === "number") && (
+          {((stage === "asking" && (q.type === "text" || q.type === "number")) || (stage === "fixing" && fixId)) && (
             <div className="inputbar">
               <textarea
                 ref={inputRef}
                 value={input}
                 rows={1}
-                inputMode={q.type === "number" ? "decimal" : "text"}
-                placeholder={q.type === "number" ? "Type a number..." : "Type your answer..."}
+                inputMode={q.type === "number" || stage === "fixing" ? "decimal" : "text"}
+                placeholder={q.type === "number" || stage === "fixing" ? "Type a number..." : "Type your answer..."}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {

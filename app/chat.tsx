@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import TopBar from "./topbar";
+import { parseNumber, rand, AI_NUMBERS_CAUTION } from "@/lib/numbers";
 
 type Question = { text: string; optional: boolean };
 type Msg = { role: "app" | "user"; text: string };
@@ -11,6 +12,8 @@ type Answer = { question: string; answer: string };
 type Stage =
   | "welcome"
   | "interview"
+  | "numbers_confirm"
+  | "numbers_fix"
   | "margin_warning"
   | "profile"
   | "profile_confirm"
@@ -74,15 +77,40 @@ export default function Chat({ questions }: { questions: Question[] }) {
     setReasked(false);
   }
 
+  const [fixWhich, setFixWhich] = useState<"price" | "cost">("price");
+
+  async function afterNumbers(list: Answer[]) {
+    const warning = marginWarning(list);
+    if (warning) {
+      addApp(warning);
+      setPendingAnswers(list);
+      setStage("margin_warning");
+      return;
+    }
+    addApp("Thanks. Give us a moment to pull that together...");
+    await runProfile(list);
+  }
+
+  function understoodNumbers(list: Answer[]): string | null {
+    const priceA = list.find((a) => /What do you charge/i.test(a.question));
+    const costA = list.find((a) => /cost you/i.test(a.question));
+    if (!priceA || !costA) return null;
+    const price = parseNumber(priceA.answer, "money");
+    const cost = parseNumber(costA.answer, "money");
+    if (price === null && cost === null) return null;
+    return (
+      "Here is what we understood: price " +
+      (price === null ? "not clear" : rand(price)) +
+      ", cost per job " +
+      (cost === null ? "not clear" : rand(cost)) +
+      ". Is that right? Numbers can be read wrongly, so please check."
+    );
+  }
+
   // Price minus the owner's own costs. Warn when little or nothing is left before their time.
   function marginWarning(list: Answer[]): string | null {
-    // First number for the price; every number added up for the costs ("R20 products and R40 travel").
-    const nums = (t: string) =>
-      (t.replace(/(\d)\s+(\d{3})\b/g, "$1$2").match(/\d+(?:[.,]\d+)?/g) || []).map((x) =>
-        parseFloat(x.replace(",", "."))
-      );
-    const num = (t: string) => (nums(t).length ? nums(t)[0] : null);
-    const sum = (t: string) => (nums(t).length ? nums(t).reduce((a, b) => a + b, 0) : null);
+    const num = (t: string) => parseNumber(t, "money");
+    const sum = num;
     const priceA = list.find((a) => /What do you charge/i.test(a.question));
     const costA = list.find((a) => /cost you/i.test(a.question));
     if (!priceA || !costA) return null;
@@ -92,12 +120,12 @@ export default function Chat({ questions }: { questions: Question[] }) {
     const left = price - cost;
     const share = left / price;
     if (left > 0 && share >= 0.5) return null;
-    const fmt = (x: number) => "R" + Math.round(x).toLocaleString("en-ZA");
+    const fmt = rand;
     const line =
       left <= 0
         ? `Before we write ads, one honest check. You charge about ${fmt(price)} and said one job costs you about ${fmt(cost)}. That leaves ${left < 0 ? "a loss of " + fmt(-left) : "nothing"} before your own time. Ads will bring more of these jobs, so the price needs a look first.`
         : `Before we write ads, one honest check. You charge about ${fmt(price)} and said one job costs you about ${fmt(cost)}. That leaves ${fmt(left)} before your own time, which is ${Math.round(share * 100)}% of the price, and your own time still has to come out of that. Ads will bring more of these jobs, so it is worth checking the price first.`;
-    return line + " You can carry on with the ads anyway, or review your pricing first.";
+    return line + " You can carry on with the ads anyway, or review your pricing first. " + AI_NUMBERS_CAUTION;
   }
 
   function looksLikeNonsense(text: string): boolean {
@@ -263,16 +291,31 @@ export default function Chat({ questions }: { questions: Question[] }) {
         return;
       }
 
-      const warning = marginWarning(newAnswers);
-      if (warning) {
-        addApp(warning);
+      const understood = understoodNumbers(newAnswers);
+      if (understood) {
+        addApp(understood);
         setPendingAnswers(newAnswers);
-        setStage("margin_warning");
+        setStage("numbers_confirm");
         return;
       }
+      await afterNumbers(newAnswers);
+      return;
+    }
 
-      addApp("Thanks. Give us a moment to pull that together...");
-      await runProfile(newAnswers);
+    if (stage === "numbers_fix" && pendingAnswers) {
+      // The owner retyped a number: "price 100" or "cost 60", or just a number for the one we asked.
+      const which = fixWhich;
+      const updated = pendingAnswers.map((a) =>
+        (which === "price" && /What do you charge/i.test(a.question)) ||
+        (which === "cost" && /cost you/i.test(a.question))
+          ? { ...a, answer: text }
+          : a
+      );
+      setPendingAnswers(updated);
+      setAnswers(updated);
+      const again = understoodNumbers(updated);
+      if (again) addApp(again);
+      setStage("numbers_confirm");
       return;
     }
 
@@ -333,7 +376,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
   }
 
   const showInput =
-    stage === "interview" || stage === "profile_fixing" || stage === "offer_adjusting";
+    stage === "interview" || stage === "profile_fixing" || stage === "offer_adjusting" || stage === "numbers_fix";
 
   return (
     <div className="shell">
@@ -400,6 +443,36 @@ export default function Chat({ questions }: { questions: Question[] }) {
                 <p>{errorText || "Something went wrong."}</p>
                 <button className="btn primary" onClick={retry}>
                   Try again
+                </button>
+              </div>
+            )}
+
+            {stage === "numbers_confirm" && !loading && (
+              <div className="choices">
+                <button className="btn primary" onClick={() => afterNumbers(pendingAnswers || answers)}>
+                  Looks right
+                </button>
+                <button
+                  className="btn ghost"
+                  onClick={() => {
+                    setFixWhich("price");
+                    setStage("numbers_fix");
+                    addApp("Type the price for one job or sale, as a plain number.");
+                    setTimeout(() => inputRef.current?.focus(), 50);
+                  }}
+                >
+                  Fix the price
+                </button>
+                <button
+                  className="btn ghost"
+                  onClick={() => {
+                    setFixWhich("cost");
+                    setStage("numbers_fix");
+                    addApp("Type what one job or sale costs you, as a plain number.");
+                    setTimeout(() => inputRef.current?.focus(), 50);
+                  }}
+                >
+                  Fix the cost
                 </button>
               </div>
             )}
