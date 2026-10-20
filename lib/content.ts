@@ -21,6 +21,7 @@ const FALLBACK_QUESTIONS: Question[] = [
   { text: "What do people usually say when they're happy with what you did for them?", optional: false },
   { text: "What's the one thing stopping people from buying right now (price, trust, not knowing you exist)?", optional: false },
   { text: "What do you charge, or want to charge, for your main offer? (If you already told us, just confirm it.)", optional: false },
+  { text: "Roughly what does one job or sale cost you: products or stock, fuel or travel, helpers, card fees? A rough total in rand is fine.", optional: false },
   { text: "How do you want customers to respond to the ad: send a WhatsApp, call, visit, book, or buy online? And any rules they must know, like how much notice you need, or collection only?", optional: false },
   { text: "Is there a reason someone should act this week rather than \"someday\"? (a deadline, limited slots, a seasonal reason; if truly none, say so, don't invent one)", optional: false },
   { text: "Anything else about the business you think matters?", optional: true },
@@ -74,3 +75,7 @@ export function getModelName(): string {
   }
   return "meta-llama/llama-3.3-70b-instruct";
 }
+
+// Only Meta Llama answers, through providers that do not log or train on prompts.
+// allow_fallbacks: false means OpenRouter fails rather than switching to another model.
+export const PROVIDER_RULES = { allow_fallbacks: false, data_collection: "deny" } as const;

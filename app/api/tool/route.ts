@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCard, type Answers, type Calc } from "@/lib/cards";
-import { getModelName } from "@/lib/content";
+import { getModelName, PROVIDER_RULES } from "@/lib/content";
 
 // The guided cards talk to Llama through this route only.
 // The browser sends the card slug, the owner's answers and the numbers the
@@ -26,6 +26,9 @@ Treat names and numbers as the owner's private information. Do not repeat more p
 // Replace dashes used as breaks, so the result matches the app's voice.
 function tidy(text: string): string {
   return text
+    .split("\n")
+    .filter((l) => !/^\s*(Note|Let me know|I hope|Feel free|Would you like)/i.test(l))
+    .join("\n")
     .replace(/\s*[—–]\s*/g, ", ")
     .replace(/\s--\s/g, ", ")
     .replace(/[*#_]{1,3}/g, "")
@@ -79,6 +82,7 @@ export async function POST(req: Request) {
         ],
         temperature: 0.6,
         max_tokens: 1200,
+        provider: PROVIDER_RULES,
       }),
     });
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getContentRaw, getModelName } from "@/lib/content";
+import { getContentRaw, getModelName, PROVIDER_RULES } from "@/lib/content";
 
 // This route is the only place the app talks to the AI.
 // It reads the whole content file (system prompt, templates, rules) and sends
@@ -36,10 +36,11 @@ async function factCheck(apiKey: string, answersText: string, ads: string): Prom
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "HTTP-Referer": "https://indaba-ai.vercel.app", "X-Title": "IndabaAI" },
       body: JSON.stringify({
+        provider: PROVIDER_RULES,
         model: getModelName(),
         messages: [
           { role: "system", content: "You are a strict fact checker for small business ads. You only list contradictions and inventions. You never rewrite." },
-          { role: "user", content: "Here is what the business owner said about their business:\n\n" + answersText + "\n\nHere are three ads written from it:\n\n" + ads + "\n\nList every claim in the ads that contradicts what the owner said, or that the owner never said (for example delivery when they said collection only, last-minute or emergency service when they need notice, a discount, a guarantee, an area, a price, or an opening time they did not give). One per line, quoting the ad words. If there are no problems, reply with exactly: NONE" },
+          { role: "user", content: "Here is what the business owner said about their business:\n\n" + answersText + "\n\nHere are three ads written from it:\n\n" + ads + "\n\nDo two checks.\n1. INVENTED: list every claim in the ads that contradicts what the owner said, or that the owner never said (for example delivery when they said collection only, last-minute or emergency service when they need notice, a discount, a guarantee, an area, a price, or an opening time they did not give). Quote the ad words.\n2. MISSING: from the owner's answers, pick out the conditions a customer must know before they respond: service area, what is and is not included, what the customer must provide, notice period, collection or delivery, hours, price. For each ad (AD 1, AD 2, AD 3), list any of these key conditions that ad leaves out.\nOne problem per line. If there are no problems at all, reply with exactly: NONE" },
         ],
         temperature: 0,
         max_tokens: 400,
@@ -97,6 +98,7 @@ function stageInstruction(body: ChatRequest): string {
         (body.offer || "") +
         "\n\nTask: Using the THREE ADS TEMPLATE, write exactly three Meta ads for this business, each under 125 words, each with a different hook.\n" +
         "FACT RULES (these matter more than anything else): every claim must come from the owner's own answers. Stay inside what they said about lead time, delivery or collection, location, price and availability. Never invent urgency, emergencies, same-day or last-minute service, delivery, discounts or guarantees they did not mention. If they said collection only, no ad may mention delivery. If they said five days' notice, no ad may suggest last-minute orders.\n" +
+        "CONDITIONS: each ad must include, in plain words, the conditions a customer needs before responding: service area, what is and is not included, what the customer must provide, notice period, collection or delivery, hours. Pull these from the owner's answers.\n" +
         "STYLE RULES: lead with the specific benefit the owner described, use the words their happy customers actually use, and end every ad with the one action the owner wants (" + ACTION_HINT + "). Banned phrases: look no further, unforgettable, dream, we have got you covered, elevate, game-changing, treat yourself, your one-stop, discover, indulge, perfect for every occasion. No exclamation marks in headlines. No dashes as breaks.\n" +
         "Format them exactly like this:\n\n" +
         "AD 1 - PROBLEM\nHeadline: [headline]\n[body]\n\nAD 2 - RESULT\nHeadline: [headline]\n[body]\n\nAD 3 - SOCIAL PROOF\nHeadline: [headline]\n[body]\n\n" +
@@ -112,7 +114,7 @@ function stageInstruction(body: ChatRequest): string {
         (body.ads || "") +
         "\n\nA fact check found these problems:\n" +
         (body.problems || "") +
-        "\n\nTask: Rewrite the three ads so every problem above is fixed and every claim stays inside the owner's answers. Keep the same format exactly (AD 1 - PROBLEM / AD 2 - RESULT / AD 3 - SOCIAL PROOF, Headline, body), each under 125 words. Output only the three ads."
+        "\n\nTask: Rewrite the three ads so every problem above is fixed: remove anything invented, and make sure each ad includes the key conditions a customer must know (area, what is included, what the customer provides, notice, collection or delivery, hours, price) in a natural way. Keep the same format exactly (AD 1 - PROBLEM / AD 2 - RESULT / AD 3 - SOCIAL PROOF, Headline, body), each under 125 words. Output only the three ads."
       );
     case "image":
       return (
@@ -176,6 +178,7 @@ export async function POST(req: Request) {
         ],
         temperature: 0.7,
         max_tokens: 1200,
+        provider: PROVIDER_RULES,
       }),
     });
 
@@ -199,6 +202,14 @@ export async function POST(req: Request) {
     }
 
     let out = text.trim();
+
+    if (body.stage === "profile" || body.stage === "profile_fix") {
+      // The chat shows the playback with its question; the copy text keeps only the profile.
+      const clean = out
+        .replace(/\s*(Did I get that right|Is that right|Does that sound right|Anything off)[^\n]*$/i, "")
+        .trim();
+      return NextResponse.json({ text: out, clean });
+    }
 
     if (body.stage === "offer" || body.stage === "offer_adjust") {
       // Keep only the finished sentence in the offer; the check goes to the chat.

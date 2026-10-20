@@ -11,6 +11,7 @@ type Answer = { question: string; answer: string };
 type Stage =
   | "welcome"
   | "interview"
+  | "margin_warning"
   | "profile"
   | "profile_confirm"
   | "profile_fixing"
@@ -37,6 +38,8 @@ export default function Chat({ questions }: { questions: Question[] }) {
 
   // The finished pieces, kept for the results screen
   const [profile, setProfile] = useState("");
+  const [profileClean, setProfileClean] = useState("");
+  const [pendingAnswers, setPendingAnswers] = useState<Answer[] | null>(null);
   const [offer, setOffer] = useState("");
   const [ads, setAds] = useState("");
   const [imagePrompt, setImagePrompt] = useState("");
@@ -71,6 +74,32 @@ export default function Chat({ questions }: { questions: Question[] }) {
     setReasked(false);
   }
 
+  // Price minus the owner's own costs. Warn when little or nothing is left before their time.
+  function marginWarning(list: Answer[]): string | null {
+    // First number for the price; every number added up for the costs ("R20 products and R40 travel").
+    const nums = (t: string) =>
+      (t.replace(/(\d)\s+(\d{3})\b/g, "$1$2").match(/\d+(?:[.,]\d+)?/g) || []).map((x) =>
+        parseFloat(x.replace(",", "."))
+      );
+    const num = (t: string) => (nums(t).length ? nums(t)[0] : null);
+    const sum = (t: string) => (nums(t).length ? nums(t).reduce((a, b) => a + b, 0) : null);
+    const priceA = list.find((a) => /What do you charge/i.test(a.question));
+    const costA = list.find((a) => /cost you/i.test(a.question));
+    if (!priceA || !costA) return null;
+    const price = num(priceA.answer);
+    const cost = sum(costA.answer);
+    if (price === null || cost === null || price <= 0) return null;
+    const left = price - cost;
+    const share = left / price;
+    if (left > 0 && share >= 0.5) return null;
+    const fmt = (x: number) => "R" + Math.round(x).toLocaleString("en-ZA");
+    const line =
+      left <= 0
+        ? `Before we write ads, one honest check. You charge about ${fmt(price)} and said one job costs you about ${fmt(cost)}. That leaves ${left < 0 ? "a loss of " + fmt(-left) : "nothing"} before your own time. Ads will bring more of these jobs, so the price needs a look first.`
+        : `Before we write ads, one honest check. You charge about ${fmt(price)} and said one job costs you about ${fmt(cost)}. That leaves ${fmt(left)} before your own time, which is ${Math.round(share * 100)}% of the price, and your own time still has to come out of that. Ads will bring more of these jobs, so it is worth checking the price first.`;
+    return line + " You can carry on with the ads anyway, or review your pricing first.";
+  }
+
   function looksLikeNonsense(text: string): boolean {
     const t = text.trim().toLowerCase();
     if (t.length < 3) return true;
@@ -90,7 +119,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
     stageName: "profile" | "profile_fix" | "offer" | "offer_adjust" | "ads" | "ads_fix" | "image",
     currentAnswers: Answer[],
     extra: { profile?: string; offer?: string; note?: string; ads?: string; problems?: string } = {}
-  ): Promise<{ text: string; note?: string; problems?: string } | null> {
+  ): Promise<{ text: string; note?: string; problems?: string; clean?: string } | null> {
     setLoading(true);
     setErrorText("");
     try {
@@ -104,7 +133,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
         setErrorText(data.error || "Something went wrong. Tap Try again.");
         return null;
       }
-      return data as { text: string; note?: string; problems?: string };
+      return data as { text: string; note?: string; problems?: string; clean?: string };
     } catch {
       setErrorText("Couldn't reach the server. Check your connection and tap Try again.");
       return null;
@@ -116,10 +145,11 @@ export default function Chat({ questions }: { questions: Question[] }) {
   async function runProfile(currentAnswers: Answer[]) {
     setStage("profile");
     setRetryStage("profile");
-    const text = await callApi("profile", currentAnswers);
-    if (text) {
-      setProfile(text);
-      addApp(text);
+    const data = await callApiFull("profile", currentAnswers);
+    if (data) {
+      setProfile(data.text);
+      setProfileClean(data.clean || data.text);
+      addApp(data.text);
       setStage("profile_confirm");
     } else {
       setStage("error");
@@ -233,6 +263,14 @@ export default function Chat({ questions }: { questions: Question[] }) {
         return;
       }
 
+      const warning = marginWarning(newAnswers);
+      if (warning) {
+        addApp(warning);
+        setPendingAnswers(newAnswers);
+        setStage("margin_warning");
+        return;
+      }
+
       addApp("Thanks. Give us a moment to pull that together...");
       await runProfile(newAnswers);
       return;
@@ -240,10 +278,11 @@ export default function Chat({ questions }: { questions: Question[] }) {
 
     if (stage === "profile_fixing") {
       setRetryStage("profile");
-      const text2 = await callApi("profile_fix", answers, { profile, note: text });
-      if (text2) {
-        setProfile(text2);
-        addApp(text2);
+      const data2 = await callApiFull("profile_fix", answers, { profile, note: text });
+      if (data2) {
+        setProfile(data2.text);
+        setProfileClean(data2.clean || data2.text);
+        addApp(data2.text);
         setStage("profile_confirm");
       } else {
         setStage("error");
@@ -337,7 +376,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
               </div>
             ))}
 
-            {stage === "interview" && !loading && answers.length > 0 && answers.length <= required.length && (
+            {stage === "interview" && !loading && answers.length > 0 && answers.length < required.length && (
               <div className="chips">
                 <button className="chip muted" onClick={goBack}>
                   Change my last answer
@@ -361,6 +400,23 @@ export default function Chat({ questions }: { questions: Question[] }) {
                 <p>{errorText || "Something went wrong."}</p>
                 <button className="btn primary" onClick={retry}>
                   Try again
+                </button>
+              </div>
+            )}
+
+            {stage === "margin_warning" && !loading && (
+              <div className="choices">
+                <Link href="/tools/prices" className="btn primary">
+                  Review my pricing first
+                </Link>
+                <button
+                  className="btn ghost"
+                  onClick={async () => {
+                    addApp("Thanks. Give us a moment to pull that together...");
+                    await runProfile(pendingAnswers || answers);
+                  }}
+                >
+                  Carry on with the ads
                 </button>
               </div>
             )}
@@ -403,7 +459,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
 
             {stage === "results" && (
               <Results
-                profile={profile}
+                profile={profileClean || profile}
                 offer={offer}
                 ads={ads}
                 imagePrompt={imagePrompt}
