@@ -20,12 +20,13 @@ export default function Home() {
             Practical AI help for <em>South African small businesses</em>.
           </h1>
           <p className="home-sub">
-            Answer a few simple questions to draft your marketing, review your pricing
-            or test a business idea, with guidance at every step. Free, no sign-up,
-            and honest when something looks weak.
+            Answer a few simple questions and we will write your Facebook and Instagram
+            ads, check whether your prices make you money, or help you test a business
+            idea, one step at a time. Free, no sign-up, and honest when something looks
+            weak.
           </p>
           <Link href="/ads" className="btn primary big">
-            Create my first marketing draft
+            Write my first ad
           </Link>
           <Link href={LEARN.href} className="quiet-link">
             {LEARN.line}
@@ -56,7 +57,7 @@ export default function Home() {
           <div className="example-note">Every result is a draft for you to check and edit before you use it.</div>
         </section>
 
-        <h2>Where do you want to start?</h2>
+        <h2>What do you need help with today?</h2>
         <div className="menu featured-menu">
           {featured.map((item) => (
             <Link key={item.href} href={item.href} className="card featured">
@@ -67,7 +68,7 @@ export default function Home() {
           ))}
         </div>
 
-        <h2>More tools</h2>
+        <h2>More ways we can help</h2>
         <div className="menu more-menu">
           {more.map((item) => (
             <Link key={item.href} href={item.href} className="card">
@@ -84,10 +85,11 @@ export default function Home() {
         </div>
 
         <footer className="home-footer">
-          <p>
-            <b>Who is behind this.</b> IndabaAI is built by Let&apos;s Learn AI, a South African
-            company founded by Corly Pienaar after four years at Meta. Questions or feedback:{" "}
-            <a href="mailto:corly@letslearnai.co.za">corly@letslearnai.co.za</a>.
+          <p className="credit">
+            IndabaAI is built by Let&apos;s Learn AI.{" "}
+            <a href="https://letslearnai.co.za" target="_blank" rel="noopener noreferrer">
+              letslearnai.co.za
+            </a>
           </p>
           <p>
             <b>Your information.</b> No sign-up. Your answers are sent to the AI model (Meta Llama,

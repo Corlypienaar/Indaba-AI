@@ -682,3 +682,8 @@ a.btn {
     padding: 16px 44px 16px 18px;
   }
 }
+
+.home-footer .credit {
+  font-size: 13px;
+  color: #6b6890;
+}
