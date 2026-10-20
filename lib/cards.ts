@@ -746,12 +746,89 @@ const decision: Card = {
   nextSlug: "blindspots",
 };
 
+
+// ---------------------------------------------------------------------------
+// Card 9: A staff or team situation
+// ---------------------------------------------------------------------------
+
+const staff: Card = {
+  slug: "staff",
+  title: "A staff or team situation",
+  minutes: 5,
+  intro: [
+    "Team problems are the ones most owners lose sleep over. In about 5 minutes we will get the facts straight and prepare you for a fair, calm conversation.",
+    "One honest note before we start. We help you prepare facts and a conversation. We cannot tell you whether an action is lawful. Before any dismissal, final warning, retrenchment, probation decision, or anything involving illness, pregnancy, union membership, discrimination or someone who has just raised a complaint, get proper advice first. In South Africa the CCMA and the Department of Employment and Labour can point you to help.",
+  ],
+  questions: [
+    {
+      id: "situation",
+      text: "What is going on, in a few sentences? Use a label like Person A instead of a name.",
+      help: "Say what happened, how often, and since when. Facts first, feelings after.",
+      type: "text",
+    },
+    {
+      id: "role",
+      text: "What is this person's role, and how long have they worked with you?",
+      help: "For example \"driver, two years\" or \"part-time helper, three months\".",
+      type: "text",
+    },
+    {
+      id: "kind",
+      text: "Which is closest to the situation?",
+      help: "Pick the one that fits best. If a few apply, pick the biggest one.",
+      type: "choice",
+      options: ["Work quality or mistakes", "Being late or absent", "Attitude or conflict with others", "Trust or honesty", "I need to cut hours or costs", "Something else"],
+    },
+    {
+      id: "spoken",
+      text: "Have you spoken to them about it directly before?",
+      why: "Most people cannot fix what nobody has told them clearly.",
+      help: "A hint or a joke does not count. A clear, calm conversation does.",
+      type: "choice",
+      options: ["Yes, clearly, more than once", "Yes, once", "Only hints", "No"],
+    },
+    {
+      id: "written",
+      text: "Do you have anything in writing: a contract, job description, written warnings, or notes of past conversations?",
+      help: "Even WhatsApp messages or a diary note with a date count as a record.",
+      type: "choice",
+      options: ["Contract and notes", "Contract only", "Notes only", "Nothing in writing", "Not sure"],
+    },
+    {
+      id: "part",
+      text: "What part might you have played in this? For example unclear instructions, no training, a late salary, or a job that grew without the pay growing.",
+      help: "This is the question most owners skip. Answering it makes the conversation fairer and usually calmer.",
+      type: "text",
+      tough: true,
+    },
+    {
+      id: "want",
+      text: "What would a good outcome look like for you?",
+      help: "For example: they improve and stay, they move to a different role, or we part ways fairly.",
+      type: "text",
+    },
+  ],
+  calculate: () => ({}),
+  role:
+    "You are an experienced, fair-minded small business advisor who helps owners prepare for difficult conversations with staff. You are careful: you prepare facts and conversations, and you never state whether an action is lawful.",
+  task: (a) =>
+    `The situation: ${or(a.situation, "not given")}. Role and time with the business: ${or(a.role, "not given")}. Kind of issue: ${or(a.kind, "not given")}. Spoken about it before: ${or(a.spoken, "not given")}. In writing: ${or(a.written, "not given")}. The owner's own part: ${or(a.part, "not given")}. Outcome wanted: ${or(a.want, "not given")}.\n\n` +
+    `Start with what the owner is doing right, including that they are preparing instead of reacting. Then set out the facts as you understand them, and say honestly what is missing: clear expectations, a direct conversation, a written record, training or support. If the owner has not spoken clearly to the person yet, say so plainly: that conversation comes first. ` +
+    `Then give a simple plan for one fair conversation: where and when, how to open it calmly, the two or three facts to state, the question to ask the person, what support or change to offer, what is expected by when, and how to write a short dated note afterwards. Write the opening lines ready to use. ` +
+    `Finish with one thing to do this week. Rules: never tell the owner whether a dismissal, warning, retrenchment or probation decision is lawful or recommend one. Say "decide the fair next step, with advice" and tell the owner to get proper advice before any dismissal, final warning, retrenchment, probation decision, or anything involving illness, pregnancy, union membership, discrimination or a recent complaint. Never use wording like "fire fast" or "part ways". Do not give legal advice.`,
+  maxWords: 350,
+  deeper: (a) =>
+    `Act as an experienced, fair-minded advisor who helps small business owners prepare for difficult conversations with staff. Do not just agree with me, and do not tell me whether anything is lawful; tell me to get proper advice where it matters. The situation (I am using Person A instead of a name): ${or(a.situation, "?")}. Their role and time with me: ${or(a.role, "?")}. Kind of issue: ${or(a.kind, "?")}. I have spoken to them about it: ${or(a.spoken, "?")}. What I have in writing: ${or(a.written, "?")}. The part I may have played: ${or(a.part, "?")}. The outcome I want: ${or(a.want, "?")}.\n` +
+    `Please help me get the facts straight, tell me honestly what is missing, and help me plan one fair, calm conversation: how to open it, the facts to state, the question to ask, the support to offer, what I expect by when, and how to record it afterwards. Then ask me what happened, one question at a time, and help me decide the fair next step, with advice. Use plain English.`,
+  nextSlug: "time",
+};
+
 function calcLines(c: Calc, sep = "\n"): string {
   const lines = Object.entries(c).map(([k, v]) => `${k}: ${v}`);
   return lines.length ? lines.join(sep) : "none";
 }
 
-export const CARDS: Record<string, Card> = { prices, blindspots, whatsapp, idea, time, customers, repeat, decision };
+export const CARDS: Record<string, Card> = { prices, blindspots, whatsapp, idea, time, customers, repeat, decision, staff };
 
 export function getCard(slug: string): Card | undefined {
   return CARDS[slug];

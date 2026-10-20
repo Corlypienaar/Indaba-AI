@@ -75,6 +75,6 @@ export const MENU: MenuItem[] = [
     title: "A staff or team situation",
     line: "Prepare for the conversation.",
     href: "/tools/staff",
-    live: false,
+    live: true,
   },
 ];
