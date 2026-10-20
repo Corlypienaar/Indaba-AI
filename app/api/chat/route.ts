@@ -98,7 +98,8 @@ function stageInstruction(body: ChatRequest): string {
         (body.offer || "") +
         "\n\nTask: Using the THREE ADS TEMPLATE, write exactly three Meta ads for this business, each under 125 words, each with a different hook.\n" +
         "FACT RULES (these matter more than anything else): every claim must come from the owner's own answers. Stay inside what they said about lead time, delivery or collection, location, price and availability. Never invent urgency, emergencies, same-day or last-minute service, delivery, discounts or guarantees they did not mention. If they said collection only, no ad may mention delivery. If they said five days' notice, no ad may suggest last-minute orders.\n" +
-        "CONDITIONS: each ad must include, in plain words, the conditions a customer needs before responding: service area, what is and is not included, what the customer must provide, notice period, collection or delivery, hours. Pull these from the owner's answers.\n" +
+        "CONDITIONS: each ad must include, in plain words, the conditions a customer needs before responding: service area, what is and is not included, what the customer must provide, notice period, collection or delivery, hours. Pull these from the owner's answers. Work them into each ad naturally and differently: a different sentence in each ad, never the same block of conditions pasted into all three.\n" +
+        "AD 1 must open on the exact thing the owner said stops people from buying, and answer it. If that worry is trust or safety, say who the owner is, how long they have done this, and what customers say.\n" +
         "STYLE RULES: lead with the specific benefit the owner described, use the words their happy customers actually use, and end every ad with the one action the owner wants (" + ACTION_HINT + "). Banned phrases: look no further, unforgettable, dream, we have got you covered, elevate, game-changing, treat yourself, your one-stop, discover, indulge, perfect for every occasion. No exclamation marks in headlines. No dashes as breaks.\n" +
         "Format them exactly like this:\n\n" +
         "AD 1 - PROBLEM\nHeadline: [headline]\n[body]\n\nAD 2 - RESULT\nHeadline: [headline]\n[body]\n\nAD 3 - SOCIAL PROOF\nHeadline: [headline]\n[body]\n\n" +
@@ -206,7 +207,8 @@ export async function POST(req: Request) {
     if (body.stage === "profile" || body.stage === "profile_fix") {
       // The chat shows the playback with its question; the copy text keeps only the profile.
       const clean = out
-        .replace(/\s*(Did I get that right|Is that right|Does that sound right|Anything off)[^\n]*$/i, "")
+        .replace(/\s*(Did (I|we) get that right|Is that right|Does that sound right|Anything off|Did we get it right)[^\n]*$/i, "")
+        .replace(/\bHere'?s what (I|we)'?ve got:?\s*/i, "")
         .trim();
       return NextResponse.json({ text: out, clean });
     }

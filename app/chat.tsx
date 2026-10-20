@@ -51,6 +51,20 @@ export default function Chat({ questions }: { questions: Question[] }) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const required = questions.filter((q) => !q.optional);
+
+  // Plain-English help for each interview question, matched by a word in the question.
+  const HELP: [RegExp, string, boolean][] = [
+    [/your business, in one sentence/i, "Say what you do, who it is for, and your town. For example: \"I wash cars at people's homes in Centurion, mostly for busy parents.\"", false],
+    [/How long have you been running/i, "A rough answer is fine: \"just started\", \"six months\", \"since 2019\".", true],
+    [/Where are you with marketing/i, "Boosting a post is tapping the blue Boost button under a Facebook post. Ads Manager is Facebook's full ads tool. If you have done neither, say \"never posted\".", true],
+    [/happy with what you did/i, "Think of the last thank-you message you got. What words did they use? Those words sell better than anything we could invent.", true],
+    [/stopping people from buying/i, "Why do people hesitate? Common ones: the price, not knowing you yet, worried about letting a stranger in, not sure it works.", true],
+    [/What do you charge/i, "Your usual price for one job or one sale. If prices vary, use the one you sell most. A plain number like 450 is best.", false],
+    [/cost you/i, "Add up what one job costs you: products or stock, petrol, data, helpers, card fees. If you are not sure, a rough total is fine.", true],
+    [/How do you want customers to respond/i, "What should the ad ask them to do: WhatsApp you, call, visit, book, or buy online? And any rules they must know first, like notice, your area, or collection only.", false],
+    [/act this week/i, "Only a real reason: a date, limited spots, a season. If there is none, say \"none\" and we will write an honest ad without one.", true],
+  ];
+  const helpFor = (text: string) => HELP.find(([re]) => re.test(text));
   const optional = questions.find((q) => q.optional);
 
   useEffect(() => {
@@ -78,6 +92,22 @@ export default function Chat({ questions }: { questions: Question[] }) {
   }
 
   const [fixWhich, setFixWhich] = useState<"price" | "cost">("price");
+  const [helpShown, setHelpShown] = useState(false);
+
+  function showHelp() {
+    const currentQ = qIndex < required.length ? required[qIndex] : optional;
+    const h = currentQ && helpFor(currentQ.text);
+    addApp("That is fine. " + (h ? h[1] : "A rough answer in your own words is enough."));
+    setHelpShown(true);
+  }
+
+  function skipQuestion() {
+    if (loading) return;
+    setInput("");
+    setHelpShown(false);
+    addUser("Skip this one");
+    void send("Not sure");
+  }
 
   async function afterNumbers(list: Answer[]) {
     const warning = marginWarning(list);
@@ -252,16 +282,17 @@ export default function Chat({ questions }: { questions: Question[] }) {
     }
   }
 
-  async function send() {
-    const text = input.trim();
+  async function send(forced?: string) {
+    const text = (forced ?? input).trim();
     if (!text || loading) return;
     setInput("");
-    addUser(text);
+    setHelpShown(false);
+    if (!forced) addUser(text);
 
     if (stage === "interview") {
       const currentQ = qIndex < required.length ? required[qIndex] : optional!;
 
-      if (looksLikeNonsense(text) && !reasked) {
+      if (!forced && looksLikeNonsense(text) && !reasked) {
         setReasked(true);
         addApp(
           "No stress, even a rough answer helps. Here is that question again, more simply: " +
@@ -419,11 +450,28 @@ export default function Chat({ questions }: { questions: Question[] }) {
               </div>
             ))}
 
-            {stage === "interview" && !loading && answers.length > 0 && answers.length < required.length && (
+            {stage === "interview" && !loading && (
               <div className="chips">
-                <button className="chip muted" onClick={goBack}>
-                  Change my last answer
-                </button>
+                {!helpShown && (
+                  <button className="chip muted" onClick={showHelp}>
+                    I am not sure what this means
+                  </button>
+                )}
+                {(() => {
+                  const currentQ = qIndex < required.length ? required[qIndex] : optional;
+                  const h = currentQ && helpFor(currentQ.text);
+                  const skippable = currentQ && (!h || h[2]);
+                  return skippable ? (
+                    <button className="chip muted" onClick={skipQuestion}>
+                      Skip this question
+                    </button>
+                  ) : null;
+                })()}
+                {answers.length > 0 && answers.length < required.length && (
+                  <button className="chip muted" onClick={goBack}>
+                    Change my last answer
+                  </button>
+                )}
               </div>
             )}
 
@@ -559,7 +607,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
                 }}
                 disabled={loading}
               />
-              <button className="btn primary send" onClick={send} disabled={loading}>
+              <button className="btn primary send" onClick={() => send()} disabled={loading}>
                 Send
               </button>
             </div>
@@ -586,12 +634,12 @@ function Results({
   return (
     <div className="results">
       <h2>Your results</h2>
-      <ResultBlock title="Your business profile" text={profile} />
-      <ResultBlock title="Your offer" text={offer} />
-      {splitAds(ads).map((ad, i) => (
+      <ResultBlock title="Your business profile" text={cleanForCopy(profile)} />
+      <ResultBlock title="Your offer" text={cleanForCopy(offer)} />
+      {splitAds(cleanForCopy(ads)).map((ad, i) => (
         <ResultBlock key={i} title={ad.title} text={ad.body} />
       ))}
-      <ResultBlock title="Your Meta AI image prompt" text={imagePrompt} />
+      <ResultBlock title="Your Meta AI image prompt" text={cleanForCopy(imagePrompt)} />
       <div className="choices">
         <button className="btn ghost" onClick={onStartOver}>
           Start over
@@ -602,6 +650,16 @@ function Results({
       </div>
     </div>
   );
+}
+
+// Belt and braces: nothing chatty reaches a copy button.
+function cleanForCopy(text: string): string {
+  return text
+    .split("\n")
+    .filter((l) => !/^\s*(CHECK:|OFFER:|Note:|The price matches|Does the user|Would you like|Let me know|I hope)/i.test(l))
+    .join("\n")
+    .replace(/\s*(Did (I|we) get that right|Is that right|Does that sound right|Anything off)[^\n]*$/i, "")
+    .trim();
 }
 
 function splitAds(ads: string): { title: string; body: string }[] {
