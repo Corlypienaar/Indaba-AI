@@ -130,8 +130,8 @@ export function finishPrompt(biz: string, start: string, done: number[], missed:
 // Suggest a card for the owner's first-win task.
 export function suggestCard(task: string): { href: string; title: string } {
   const t = task.toLowerCase();
-  if (/whatsapp|reply|message|enquir|inquir|chat/.test(t)) return { href: "/tools/whatsapp", title: "Help me with WhatsApp" };
-  if (/price|profit|quote|cost|money|margin|invoice|payment/.test(t)) return { href: "/tools/prices", title: "Are my prices and profit right?" };
-  if (/post|ad|social|facebook|instagram|marketing|promot/.test(t)) return { href: "/ads", title: "Write my ads and posts" };
-  return { href: "/tools/blindspots", title: "What might I not be seeing?" };
+  if (/whatsapp|reply|message|enquir|inquir|chat/.test(t)) return { href: "/tools/whatsapp", title: "Help me with my WhatsApp for Business" };
+  if (/price|profit|quote|cost|money|margin|invoice|payment/.test(t)) return { href: "/tools/prices", title: "Help me review my pricing and profit" };
+  if (/post|ad|social|facebook|instagram|marketing|promot/.test(t)) return { href: "/ads", title: "Help me create ads and social posts" };
+  return { href: "/tools/blindspots", title: "Help me spot problems in my business I may be missing" };
 }

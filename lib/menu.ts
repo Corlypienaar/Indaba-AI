@@ -1,5 +1,6 @@
 // The home screen menu. One entry per card.
-// Cards with `live: false` show as "Coming soon" and cannot be tapped.
+// `featured` cards appear at the top as the three main starting points.
+// The lessons card is shown separately as the quiet "New to AI?" route.
 
 export type MenuItem = {
   title: string;
@@ -11,70 +12,72 @@ export type MenuItem = {
 
 export const MENU: MenuItem[] = [
   {
-    title: "New to AI? Start here",
-    line: "Seven short lessons. No jargon. You are not behind.",
-    href: "/learn",
+    title: "Help me create ads and social posts",
+    line: "A few questions become a clear offer and three ad drafts you can edit and post.",
+    href: "/ads",
     live: true,
     featured: true,
   },
   {
-    title: "Write my ads and posts",
-    line: "Turn your offer into ads you can post today.",
-    href: "/ads",
-    live: true,
-  },
-  {
-    title: "Are my prices and profit right?",
-    line: "See where your money really comes from.",
+    title: "Help me review my pricing and profit",
+    line: "See what one job really earns you, and what to try this month.",
     href: "/tools/prices",
     live: true,
+    featured: true,
   },
   {
-    title: "What might I not be seeing?",
-    line: "Some of the best answers sit in the questions we skip.",
+    title: "Help me test my business idea",
+    line: "Find out cheaply whether people would pay, before you spend.",
+    href: "/tools/idea",
+    live: true,
+    featured: true,
+  },
+  {
+    title: "Help me spot problems in my business I may be missing",
+    line: "Honest questions about the things owners stand too close to see.",
     href: "/tools/blindspots",
     live: true,
   },
   {
-    title: "Help me with WhatsApp",
-    line: "Set up the place your customers already are.",
+    title: "Help me with my WhatsApp for Business",
+    line: "A simple setup plan, plus greeting, away and quick-reply messages to copy.",
     href: "/tools/whatsapp",
     live: true,
   },
   {
-    title: "Stress test my business idea",
-    line: "Test an idea, or a business you have not started yet.",
-    href: "/tools/idea",
-    live: true,
-  },
-  {
-    title: "Where is my time going?",
-    line: "Find the hours you can win back.",
+    title: "Help me find ways to save time",
+    line: "Sort your week into keep, stop, batch and hand off.",
     href: "/tools/time",
     live: true,
   },
   {
-    title: "Who are my best customers?",
-    line: "See who is worth the most for the least effort.",
+    title: "Help me identify my best customers",
+    line: "Rank your customers by money relative to effort.",
     href: "/tools/customers",
     live: true,
   },
   {
-    title: "Get more from the customers I already have",
-    line: "Your best growth may already be on your list.",
+    title: "Help me sell more to existing customers",
+    line: "Natural next offers, and a warm message to reconnect.",
     href: "/tools/repeat",
     live: true,
   },
   {
-    title: "Help me think through a decision",
-    line: "Talk it through with an honest partner.",
+    title: "Help me work through a business decision",
+    line: "An honest look at your options, and one next step.",
     href: "/tools/decision",
     live: true,
   },
   {
-    title: "A staff or team situation",
-    line: "Prepare for the conversation.",
+    title: "Help me prepare for a staff conversation",
+    line: "Get the facts straight and plan a fair, calm conversation.",
     href: "/tools/staff",
     live: true,
   },
 ];
+
+export const LEARN = {
+  title: "Help me understand AI",
+  line: "New to AI? Seven short lessons. No jargon. You are not behind.",
+  href: "/learn",
+};

@@ -309,12 +309,15 @@ export default function Chat({ questions }: { questions: Question[] }) {
           </h1>
           <p>
             Answer a few questions in plain English. IndabaAI turns them into a sharp
-            offer, three ready-to-post Meta ads, and an image prompt for Meta AI,
-            built for small businesses.
+            offer, three Meta ad drafts you can edit and post, and an image prompt for
+            Meta AI. About 5 minutes.
           </p>
           <button className="btn primary big" onClick={start}>
             Start
           </button>
+          <Link href="/" className="btn ghost">
+            Back to home
+          </Link>
           <p className="fineprint">
             No sign-up. Please do not share ID numbers, bank details or client names.
             We will never ask for them.

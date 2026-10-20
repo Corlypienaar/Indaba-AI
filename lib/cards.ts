@@ -56,7 +56,7 @@ const or = (v: string, fallback: string) => (v && v.trim() ? v.trim() : fallback
 
 const prices: Card = {
   slug: "prices",
-  title: "Are my prices and profit right?",
+  title: "Help me review my pricing and profit",
   minutes: 5,
   intro: [
     "Many owners work hard and wonder where the money went. In about 5 minutes we will look at what you charge, what it really costs you, and what you keep.",
@@ -174,7 +174,7 @@ const prices: Card = {
 
 const blindspots: Card = {
   slug: "blindspots",
-  title: "What might I not be seeing?",
+  title: "Help me spot problems in my business I may be missing",
   minutes: 5,
   intro: [
     "Every owner has blind spots. We stand so close to the business that some things are hard to see.",
@@ -259,7 +259,7 @@ const blindspots: Card = {
 
 const whatsapp: Card = {
   slug: "whatsapp",
-  title: "Help me with WhatsApp",
+  title: "Help me with my WhatsApp for Business",
   minutes: 5,
   intro: [
     "Your customers are probably already on WhatsApp. In about 5 minutes we will look at how you use it today and give you a simple plan to start, plus messages you can copy.",
@@ -338,7 +338,7 @@ const whatsapp: Card = {
 
 const idea: Card = {
   slug: "idea",
-  title: "Stress test my business idea",
+  title: "Help me test my business idea",
   minutes: 5,
   intro: [
     "Every business started as an idea. Testing an idea before you spend money is one of the smartest things you can do. In about 5 minutes we will look at who needs it, whether they would pay, and a cheap way to find out.",
@@ -440,7 +440,7 @@ const idea: Card = {
 
 const time: Card = {
   slug: "time",
-  title: "Where is my time going?",
+  title: "Help me find ways to save time",
   minutes: 5,
   intro: [
     "You cannot get back time you cannot see. In about 5 minutes we will look at your week, find the jobs that drain you, and find the ones you could hand off or drop.",
@@ -542,7 +542,7 @@ function parseRows(text: string): Row[] {
 
 const customers: Card = {
   slug: "customers",
-  title: "Who are my best customers?",
+  title: "Help me identify my best customers",
   minutes: 10,
   intro: [
     "Your best customers may not be the ones who pay the most. They may be the ones who pay well for the least effort. In about 10 minutes we will see who is worth the most to you.",
@@ -612,7 +612,7 @@ const customers: Card = {
 
 const repeat: Card = {
   slug: "repeat",
-  title: "Get more from the customers I already have",
+  title: "Help me sell more to existing customers",
   minutes: 5,
   intro: [
     "Most growth hides in the customers who already trust you. In about 5 minutes we will find a few natural next things they might say yes to, and a message to reopen the door with past customers.",
@@ -688,7 +688,7 @@ const repeat: Card = {
 
 const decision: Card = {
   slug: "decision",
-  title: "Help me think through a decision",
+  title: "Help me work through a business decision",
   minutes: 5,
   intro: [
     "A good thinking partner asks the questions you have not asked yourself. In about 5 minutes we will look at a decision from all sides. We will be honest with you.",
@@ -753,7 +753,7 @@ const decision: Card = {
 
 const staff: Card = {
   slug: "staff",
-  title: "A staff or team situation",
+  title: "Help me prepare for a staff conversation",
   minutes: 5,
   intro: [
     "Team problems are the ones most owners lose sleep over. In about 5 minutes we will get the facts straight and prepare you for a fair, calm conversation.",
