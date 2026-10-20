@@ -9,7 +9,7 @@ export default function TopBar() {
         <span className="brand-mark">Indaba</span>
         <span className="brand-ai">AI</span>
       </Link>
-      <div className="tagline">Powered by Meta Llama 4</div>
+      <div className="tagline">Powered by Meta Llama</div>
     </header>
   );
 }

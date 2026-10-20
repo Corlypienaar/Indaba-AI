@@ -73,7 +73,7 @@ export function getModelName(): string {
   } catch {
     // fall through
   }
-  return "meta-llama/llama-4-maverick";
+  return "meta-llama/llama-3.3-70b-instruct";
 }
 
 // Only Meta Llama answers, through providers that do not log or train on prompts.

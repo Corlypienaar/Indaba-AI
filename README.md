@@ -1,6 +1,6 @@
 # IndabaAI
 
-A guided AI marketing assistant for South African small businesses. An MVP for the Meta AI Academy South Africa Pitchathon, built on Meta's **Llama 4 Maverick** via **OpenRouter**.
+A guided AI marketing assistant for South African small businesses. An MVP for the Meta AI Academy South Africa Pitchathon, built on Meta's **Llama 3.3 70B Instruct** via **OpenRouter**.
 
 ## How it's wired
 
@@ -26,4 +26,4 @@ Edit `content/prompts.md` directly on GitHub (pencil icon > change > Commit chan
 
 ## Model
 
-`meta-llama/llama-4-maverick` via OpenRouter (`https://openrouter.ai/api/v1`). The model name is read from the MODEL AND HOSTING section of `content/prompts.md`.
+`meta-llama/llama-3.3-70b-instruct` via OpenRouter (`https://openrouter.ai/api/v1`). The model name is read from the MODEL AND HOSTING section of `content/prompts.md`.
