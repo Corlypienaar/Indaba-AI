@@ -71,5 +71,5 @@ export function getModelName(): string {
   } catch {
     // fall through
   }
-  return "meta-llama/llama-3.3-70b-instruct:free";
+  return "meta-llama/llama-3.3-70b-instruct";
 }
