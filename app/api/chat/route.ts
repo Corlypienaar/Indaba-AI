@@ -12,7 +12,9 @@ export const dynamic = "force-dynamic";
 type Answer = { question: string; answer: string };
 
 type ChatRequest = {
-  stage: "profile" | "profile_fix" | "offer" | "offer_adjust" | "ads" | "image";
+  stage: "profile" | "profile_fix" | "offer" | "offer_adjust" | "ads" | "ads_fix" | "image";
+  ads?: string;
+  problems?: string;
   answers: Answer[];
   profile?: string;
   offer?: string;
@@ -23,6 +25,34 @@ function transcript(answers: Answer[]): string {
   return answers
     .map((a, i) => `Q${i + 1}: ${a.question}\nA${i + 1}: ${a.answer}`)
     .join("\n\n");
+}
+
+const ACTION_HINT = "send a WhatsApp, call, visit, book or buy, whichever the owner asked for";
+
+// Ask the model to compare the ads against the owner's answers. Returns "" when clean.
+async function factCheck(apiKey: string, answersText: string, ads: string): Promise<string> {
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "HTTP-Referer": "https://indaba-ai.vercel.app", "X-Title": "IndabaAI" },
+      body: JSON.stringify({
+        model: getModelName(),
+        messages: [
+          { role: "system", content: "You are a strict fact checker for small business ads. You only list contradictions and inventions. You never rewrite." },
+          { role: "user", content: "Here is what the business owner said about their business:\n\n" + answersText + "\n\nHere are three ads written from it:\n\n" + ads + "\n\nList every claim in the ads that contradicts what the owner said, or that the owner never said (for example delivery when they said collection only, last-minute or emergency service when they need notice, a discount, a guarantee, an area, a price, or an opening time they did not give). One per line, quoting the ad words. If there are no problems, reply with exactly: NONE" },
+        ],
+        temperature: 0,
+        max_tokens: 400,
+      }),
+    });
+    if (!res.ok) return "";
+    const data = await res.json();
+    const text: string = (data?.choices?.[0]?.message?.content || "").trim();
+    if (!text || /^none\b/i.test(text)) return "";
+    return text;
+  } catch {
+    return "";
+  }
 }
 
 function stageInstruction(body: ChatRequest): string {
@@ -57,7 +87,7 @@ function stageInstruction(body: ChatRequest): string {
         (body.offer || "") +
         "\n\nThe user wants this changed: " +
         (body.note || "") +
-        "\n\nTask: Rewrite the offer as ONE sentence using the OFFER TEMPLATE with their change applied, then briefly re-run the honesty check in one or two sentences."
+        "\n\nTask: Rewrite the offer as ONE sentence using the OFFER TEMPLATE with their change applied. Reply in the same two-part format:\nOFFER: [the single finished offer sentence]\nCHECK: [one or two plain sentences on whether it holds up]"
       );
     case "ads":
       return (
@@ -65,9 +95,24 @@ function stageInstruction(body: ChatRequest): string {
         (body.profile || "") +
         "\n\nAnd locked in this offer:\n" +
         (body.offer || "") +
-        "\n\nTask: Using the THREE ADS TEMPLATE, write exactly three Meta ads for this business, each under 125 words, each with a different hook. Format them exactly like this:\n\n" +
+        "\n\nTask: Using the THREE ADS TEMPLATE, write exactly three Meta ads for this business, each under 125 words, each with a different hook.\n" +
+        "FACT RULES (these matter more than anything else): every claim must come from the owner's own answers. Stay inside what they said about lead time, delivery or collection, location, price and availability. Never invent urgency, emergencies, same-day or last-minute service, delivery, discounts or guarantees they did not mention. If they said collection only, no ad may mention delivery. If they said five days' notice, no ad may suggest last-minute orders.\n" +
+        "STYLE RULES: lead with the specific benefit the owner described, use the words their happy customers actually use, and end every ad with the one action the owner wants (" + ACTION_HINT + "). Banned phrases: look no further, unforgettable, dream, we have got you covered, elevate, game-changing, treat yourself, your one-stop, discover, indulge, perfect for every occasion. No exclamation marks in headlines. No dashes as breaks.\n" +
+        "Format them exactly like this:\n\n" +
         "AD 1 - PROBLEM\nHeadline: [headline]\n[body]\n\nAD 2 - RESULT\nHeadline: [headline]\n[body]\n\nAD 3 - SOCIAL PROOF\nHeadline: [headline]\n[body]\n\n" +
         "Output only the three ads in that format, nothing else."
+      );
+    case "ads_fix":
+      return (
+        "The user confirmed this profile:\n" +
+        (body.profile || "") +
+        "\n\nAnd locked in this offer:\n" +
+        (body.offer || "") +
+        "\n\nYou wrote these three ads:\n" +
+        (body.ads || "") +
+        "\n\nA fact check found these problems:\n" +
+        (body.problems || "") +
+        "\n\nTask: Rewrite the three ads so every problem above is fixed and every claim stays inside the owner's answers. Keep the same format exactly (AD 1 - PROBLEM / AD 2 - RESULT / AD 3 - SOCIAL PROOF, Headline, body), each under 125 words. Output only the three ads."
       );
     case "image":
       return (
@@ -153,7 +198,34 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({ text: text.trim() });
+    let out = text.trim();
+
+    if (body.stage === "offer" || body.stage === "offer_adjust") {
+      // Keep only the finished sentence in the offer; the check goes to the chat.
+      const m = out.match(/OFFER:\s*([\s\S]*?)(?:\n+\s*CHECK:\s*([\s\S]*))?$/i);
+      if (m) {
+        const offer = m[1].trim().replace(/\s*\n+\s*/g, " ");
+        const check = (m[2] || "").trim();
+        return NextResponse.json({ text: offer, note: check });
+      }
+    }
+
+    if (body.stage === "ads" || body.stage === "ads_fix") {
+      const hasAll = /AD 1/i.test(out) && /AD 2/i.test(out) && /AD 3/i.test(out);
+      if (!hasAll) {
+        return NextResponse.json({ error: "The AI sent the ads in the wrong shape. Tap Try again." }, { status: 502 });
+      }
+      // Drop anything the model wrote before "AD 1" or after the third ad.
+      out = out.slice(out.search(/AD 1/i));
+      if (body.stage === "ads") {
+        const problems = await factCheck(apiKey, transcript(body.answers || []), out);
+        if (problems) {
+          return NextResponse.json({ text: out, problems });
+        }
+      }
+    }
+
+    return NextResponse.json({ text: out });
   } catch (err) {
     console.error("OpenRouter request failed", err);
     return NextResponse.json(

@@ -78,10 +78,19 @@ export default function Chat({ questions }: { questions: Question[] }) {
   }
 
   async function callApi(
-    stageName: "profile" | "profile_fix" | "offer" | "offer_adjust" | "ads" | "image",
+    stageName: "profile" | "profile_fix" | "offer" | "offer_adjust" | "ads" | "ads_fix" | "image",
     currentAnswers: Answer[],
     extra: { profile?: string; offer?: string; note?: string } = {}
   ): Promise<string | null> {
+    const data = await callApiFull(stageName, currentAnswers, extra);
+    return data ? data.text : null;
+  }
+
+  async function callApiFull(
+    stageName: "profile" | "profile_fix" | "offer" | "offer_adjust" | "ads" | "ads_fix" | "image",
+    currentAnswers: Answer[],
+    extra: { profile?: string; offer?: string; note?: string; ads?: string; problems?: string } = {}
+  ): Promise<{ text: string; note?: string; problems?: string } | null> {
     setLoading(true);
     setErrorText("");
     try {
@@ -95,7 +104,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
         setErrorText(data.error || "Something went wrong. Tap Try again.");
         return null;
       }
-      return data.text as string;
+      return data as { text: string; note?: string; problems?: string };
     } catch {
       setErrorText("Couldn't reach the server. Check your connection and tap Try again.");
       return null;
@@ -121,10 +130,11 @@ export default function Chat({ questions }: { questions: Question[] }) {
     setStage("offer");
     setRetryStage("offer");
     addApp("Great. Now let's sharpen your offer into one sentence...");
-    const text = await callApi("offer", answers, { profile });
-    if (text) {
-      setOffer(text);
-      addApp(text);
+    const data = await callApiFull("offer", answers, { profile });
+    if (data) {
+      setOffer(data.text);
+      addApp(data.text);
+      if (data.note) addApp(data.note);
       setStage("offer_confirm");
     } else {
       setStage("error");
@@ -135,10 +145,16 @@ export default function Chat({ questions }: { questions: Question[] }) {
     setStage("ads");
     setRetryStage("ads");
     addApp("Locked in. Writing your three ads now. This takes a few seconds...");
-    const adsText = await callApi("ads", answers, { profile, offer });
-    if (!adsText) {
+    const first = await callApiFull("ads", answers, { profile, offer });
+    if (!first) {
       setStage("error");
       return;
+    }
+    let adsText = first.text;
+    if (first.problems) {
+      addApp("Checking the ads against what you told us... fixing a few details so nothing promises more than you do.");
+      const fixed = await callApiFull("ads_fix", answers, { profile, offer, ads: first.text, problems: first.problems });
+      if (fixed) adsText = fixed.text;
     }
     setAds(adsText);
     addApp(adsText);
@@ -237,16 +253,29 @@ export default function Chat({ questions }: { questions: Question[] }) {
 
     if (stage === "offer_adjusting") {
       setRetryStage("offer");
-      const text2 = await callApi("offer_adjust", answers, { profile, offer, note: text });
-      if (text2) {
-        setOffer(text2);
-        addApp(text2);
+      const data2 = await callApiFull("offer_adjust", answers, { profile, offer, note: text });
+      if (data2) {
+        setOffer(data2.text);
+        addApp(data2.text);
+        if (data2.note) addApp(data2.note);
         setStage("offer_confirm");
       } else {
         setStage("error");
       }
       return;
     }
+  }
+
+  function goBack() {
+    if (answers.length === 0 || loading) return;
+    const prevIndex = answers.length - 1;
+    const prevQ = prevIndex < required.length ? required[prevIndex] : optional!;
+    if (prevIndex >= required.length) return; // optional question is the last step, nothing to go back from
+    setAnswers(answers.slice(0, -1));
+    setQIndex(prevIndex);
+    setReasked(false);
+    addApp("No problem. Here is that question again: " + prevQ.text);
+    setTimeout(() => inputRef.current?.focus(), 50);
   }
 
   function startOver() {
@@ -293,12 +322,25 @@ export default function Chat({ questions }: { questions: Question[] }) {
         </main>
       ) : (
         <main className="chat">
+          {stage === "interview" && (
+            <div className="progress">
+              Question {Math.min(qIndex + 1, required.length)} of {required.length}
+            </div>
+          )}
           <div className="messages">
             {messages.map((m, i) => (
               <div key={i} className={`bubble ${m.role}`}>
                 {m.text}
               </div>
             ))}
+
+            {stage === "interview" && !loading && answers.length > 0 && answers.length <= required.length && (
+              <div className="chips">
+                <button className="chip muted" onClick={goBack}>
+                  Change my last answer
+                </button>
+              </div>
+            )}
 
             {loading && (
               <div className="bubble app typing">
@@ -414,7 +456,9 @@ function Results({
       <h2>Your results</h2>
       <ResultBlock title="Your business profile" text={profile} />
       <ResultBlock title="Your offer" text={offer} />
-      <ResultBlock title="Your three Meta ads" text={ads} />
+      {splitAds(ads).map((ad, i) => (
+        <ResultBlock key={i} title={ad.title} text={ad.body} />
+      ))}
       <ResultBlock title="Your Meta AI image prompt" text={imagePrompt} />
       <div className="choices">
         <button className="btn ghost" onClick={onStartOver}>
@@ -426,6 +470,17 @@ function Results({
       </div>
     </div>
   );
+}
+
+function splitAds(ads: string): { title: string; body: string }[] {
+  const parts = ads.split(/\n(?=AD \d)/i).map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return [{ title: "Your three Meta ads", body: ads }];
+  return parts.map((p) => {
+    const firstLine = p.split("\n")[0].trim();
+    const body = p.slice(firstLine.length).trim();
+    const label = firstLine.replace(/^AD\s*(\d)\s*[-:]\s*/i, "Ad $1: ");
+    return { title: label.charAt(0) + label.slice(1).toLowerCase().replace(/^ad (\d): (\w)/, (m, n, c) => `ad ${n}: ${c.toUpperCase()}`), body };
+  });
 }
 
 function ResultBlock({ title, text }: { title: string; text: string }) {

@@ -15,13 +15,14 @@ export type Question = { text: string; optional: boolean };
 // Hard-coded fallback, copied word for word from content/prompts.md, used only
 // if the file can't be parsed (so the app never dies on a formatting typo).
 const FALLBACK_QUESTIONS: Question[] = [
-  { text: "What's your business, in one sentence? (what you do, who it's for)", optional: false },
+  { text: "What's your business, in one sentence? (what you do, who it's for, and where you are)", optional: false },
   { text: "How long have you been running it?", optional: false },
-  { text: "Where are you with marketing today — never posted, boosted a post once or twice, or already in Ads Manager?", optional: false },
+  { text: "Where are you with marketing today: never posted, boosted a post once or twice, or already in Ads Manager?", optional: false },
   { text: "What do people usually say when they're happy with what you did for them?", optional: false },
   { text: "What's the one thing stopping people from buying right now (price, trust, not knowing you exist)?", optional: false },
-  { text: "What do you charge, or want to charge, for your main offer?", optional: false },
-  { text: "Is there a reason someone should act this week rather than \"someday\"? (a deadline, limited slots, a seasonal reason — if truly none, say so, don't invent one)", optional: false },
+  { text: "What do you charge, or want to charge, for your main offer? (If you already told us, just confirm it.)", optional: false },
+  { text: "How do you want customers to respond to the ad: send a WhatsApp, call, visit, book, or buy online? And any rules they must know, like how much notice you need, or collection only?", optional: false },
+  { text: "Is there a reason someone should act this week rather than \"someday\"? (a deadline, limited slots, a seasonal reason; if truly none, say so, don't invent one)", optional: false },
   { text: "Anything else about the business you think matters?", optional: true },
 ];
 
