@@ -59,7 +59,7 @@ export default function Learn() {
     const b = input.trim();
     setBiz(b);
     setInput("");
-    add("user", b || "(blank)");
+    add("user", b || "Skipped");
     const startAt = level === LEVELS[0] ? 0 : 3;
     openLesson(startAt);
   }
@@ -94,7 +94,7 @@ export default function Learn() {
     const t = input.trim();
     setTask(t);
     setInput("");
-    add("user", t || "(blank)");
+    add("user", t || "Skipped");
     add("app", "You started. That is the part most people never get to. Keep your tool open, try one thing today, and come back whenever you want the next step. We are here.");
     setStage("done");
   }

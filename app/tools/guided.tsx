@@ -190,7 +190,7 @@ export default function Guided({ slug }: { slug: string }) {
       setResult(data.text as string);
       add("app", data.text as string);
       if (s.length) {
-        add("app", "Questions worth finding out:\n" + s.map((x) => "- " + x).join("\n"));
+        add("app", "Questions worth finding out:\n" + s.map((x, i) => `${i + 1}. ${x}`).join("\n"));
       }
       add("note", CLOSING_LINE);
       setStage("result");

@@ -177,7 +177,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
     stageName: "profile" | "profile_fix" | "offer" | "offer_adjust" | "ads" | "ads_fix" | "image",
     currentAnswers: Answer[],
     extra: { profile?: string; offer?: string; note?: string; ads?: string; problems?: string } = {}
-  ): Promise<{ text: string; note?: string; problems?: string; clean?: string } | null> {
+  ): Promise<{ text: string; note?: string; problems?: string; clean?: string; warning?: string } | null> {
     setLoading(true);
     setErrorText("");
     try {
@@ -191,7 +191,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
         setErrorText(data.error || "Something went wrong. Tap Try again.");
         return null;
       }
-      return data as { text: string; note?: string; problems?: string; clean?: string };
+      return data as { text: string; note?: string; problems?: string; clean?: string; warning?: string };
     } catch {
       setErrorText("Couldn't reach the server. Check your connection and tap Try again.");
       return null;
@@ -242,7 +242,10 @@ export default function Chat({ questions }: { questions: Question[] }) {
     if (first.problems) {
       addApp("Checking the ads against what you told us... fixing a few details so nothing promises more than you do.");
       const fixed = await callApiFull("ads_fix", answers, { profile, offer, ads: first.text, problems: first.problems });
-      if (fixed) adsText = fixed.text;
+      if (fixed) {
+        adsText = fixed.text;
+        if (fixed.warning) addApp(fixed.warning);
+      }
     }
     setAds(adsText);
     addApp(adsText);
