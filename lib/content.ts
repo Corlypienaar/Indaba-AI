@@ -77,11 +77,13 @@ export function getModelName(): string {
 }
 
 // Only Meta Llama answers, through providers that do not log or train on prompts.
-// allow_fallbacks: false means OpenRouter fails rather than switching to another model.
-export const PROVIDER_RULES = { allow_fallbacks: false, data_collection: "deny", sort: "throughput" } as const;
+// allow_fallbacks: true lets OpenRouter try ANOTHER COMPANY hosting the same Llama model when the
+// first one is busy. It never switches to a different model (that would need a "models" list).
+export const PROVIDER_RULES = { allow_fallbacks: true, data_collection: "deny", sort: "throughput" } as const;
 
-// One call to OpenRouter. On a 429 (too many requests) it waits 5 seconds and tries once more
-// before giving up, so a busy minute does not turn into an error on the owner's screen.
+// One call to OpenRouter. On a 429 (too many requests) or a temporary server hiccup it waits
+// and tries again, up to 3 more times (after 2s, 4s, 8s), so a busy moment does not turn into
+// an error on the owner's screen.
 export async function callOpenRouter(apiKey: string, payload: Record<string, unknown>): Promise<Response> {
   const send = () =>
     fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -95,8 +97,8 @@ export async function callOpenRouter(apiKey: string, payload: Record<string, unk
       body: JSON.stringify({ ...payload, provider: PROVIDER_RULES }),
     });
   let res = await send();
-  if (res.status === 429) {
-    await new Promise((r) => setTimeout(r, 5000));
+  for (let attempt = 1; attempt <= 3 && [429, 502, 503].includes(res.status); attempt++) {
+    await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
     res = await send();
   }
   return res;
