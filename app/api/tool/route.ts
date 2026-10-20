@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCard, type Answers, type Calc } from "@/lib/cards";
-import { getModelName, PROVIDER_RULES } from "@/lib/content";
+import { getModelName, callOpenRouter } from "@/lib/content";
 
 // The guided cards talk to Llama through this route only.
 // The browser sends the card slug, the owner's answers and the numbers the
@@ -66,24 +66,14 @@ export async function POST(req: Request) {
     `\n\nKeep the whole answer under ${card.maxWords} words.`;
 
   try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://indaba-ai.vercel.app",
-        "X-Title": "IndabaAI",
-      },
-      body: JSON.stringify({
-        model: getModelName(),
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
-        temperature: 0.6,
-        max_tokens: 1200,
-        provider: PROVIDER_RULES,
-      }),
+    const res = await callOpenRouter(apiKey, {
+      model: getModelName(),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      temperature: 0.6,
+      max_tokens: 1200,
     });
 
     if (!res.ok) {

@@ -90,7 +90,7 @@ WHAT YOU DO NOT DO
 
 ```
 Here's what we've got: [name/business], based in [area], you [what they do]
-for [who]. People come back because [strength from Q4]. Did I get that right,
+for [who]. People come back because [strength from Q4]. Did we get that right,
 or is anything off?
 ```
 

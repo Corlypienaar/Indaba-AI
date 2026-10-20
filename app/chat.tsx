@@ -229,10 +229,10 @@ export default function Chat({ questions }: { questions: Question[] }) {
     }
   }
 
-  async function runAdsAndImage() {
+  async function runAdsAndImage(isRetry = false) {
     setStage("ads");
     setRetryStage("ads");
-    addApp("Locked in. Writing your three ads now. This takes a few seconds...");
+    if (!isRetry) addApp("Locked in. Writing your three ads now. This takes a few seconds...");
     const first = await callApiFull("ads", answers, { profile, offer });
     if (!first) {
       setStage("error");
@@ -269,7 +269,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
     else if (retryStage === "offer") await runOffer();
     else if (retryStage === "ads" || retryStage === "image") {
       // Re-run from ads onwards; if ads already succeeded, only redo the image.
-      if (!ads) await runAdsAndImage();
+      if (!ads) await runAdsAndImage(true);
       else {
         setStage("image");
         const imgText = await callApi("image", answers, { profile, offer });
@@ -565,7 +565,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
 
             {stage === "offer_confirm" && !loading && (
               <div className="choices">
-                <button className="btn primary" onClick={runAdsAndImage}>
+                <button className="btn primary" onClick={() => runAdsAndImage()}>
                   Lock it in and write my ads
                 </button>
                 <button

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getContentRaw, getModelName, PROVIDER_RULES } from "@/lib/content";
+import { getContentRaw, getModelName, callOpenRouter } from "@/lib/content";
 
 // This route is the only place the app talks to the AI.
 // It reads the whole content file (system prompt, templates, rules) and sends
@@ -45,11 +45,7 @@ const ACTION_HINT = "send a WhatsApp, call, visit, book or buy, whichever the ow
 // Ask the model to compare the ads against the owner's answers. Returns "" when clean.
 async function factCheck(apiKey: string, answersText: string, ads: string, must: string[]): Promise<string> {
   try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "HTTP-Referer": "https://indaba-ai.vercel.app", "X-Title": "IndabaAI" },
-      body: JSON.stringify({
-        provider: PROVIDER_RULES,
+    const res = await callOpenRouter(apiKey, {
         model: getModelName(),
         messages: [
           { role: "system", content: "You are a strict fact checker for small business ads. You only list contradictions and inventions. You never rewrite." },
@@ -57,7 +53,6 @@ async function factCheck(apiKey: string, answersText: string, ads: string, must:
         ],
         temperature: 0,
         max_tokens: 400,
-      }),
     });
     if (!res.ok) return "";
     const data = await res.json();
@@ -67,6 +62,30 @@ async function factCheck(apiKey: string, answersText: string, ads: string, must:
   } catch {
     return "";
   }
+}
+
+// Pull the single offer sentence and the honesty check out of the model's reply,
+// whether the sentence sits on the OFFER: line or the line after it.
+function parseOffer(raw: string): { offer: string; check: string } {
+  const text = raw.replace(/\*\*/g, "").trim();
+  const m = text.match(/OFFER:\s*\n?\s*([\s\S]*?)\s*(?:\n+\s*(?:CHECK|Inline honesty check|Honesty check):?\s*([\s\S]*))?$/i);
+  let offer = "";
+  let check = "";
+  if (m) {
+    offer = m[1].trim().replace(/\s*\n+\s*/g, " ");
+    check = (m[2] || "").trim();
+  } else {
+    const lines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !/template|^here'?s|^here is|^the proposed|^proposed offer/i.test(l));
+    const first = lines.find((l) => !/^(check|inline honesty|honesty)/i.test(l)) || "";
+    offer = first;
+    check = lines.filter((l) => l !== first).join(" ").replace(/^(inline honesty check|honesty check|check):?\s*/i, "");
+  }
+  // Commentary is not an offer.
+  if (/\bthe user\b|\bthe price matches\b|\bseems real\b|\bholds up\b/i.test(offer) || offer.length < 15) offer = "";
+  return { offer: offer.replace(/^[*_"]+|[*_"]+$/g, ""), check };
 }
 
 function stageInstruction(body: ChatRequest): string {
@@ -113,7 +132,8 @@ function stageInstruction(body: ChatRequest): string {
         "FACT RULES (these matter more than anything else): every claim must come from the owner's own answers. Stay inside what they said about lead time, delivery or collection, location, price and availability. Never invent urgency, emergencies, same-day or last-minute service, delivery, discounts or guarantees they did not mention. If they said collection only, no ad may mention delivery. If they said five days' notice, no ad may suggest last-minute orders.\n" +
         "MUST APPEAR IN EVERY AD, in the owner's own terms:\n" + mustInclude(body.answers || []).map((x) => "- " + x).join("\n") + "\n" +
         "CONDITIONS: each ad must include, in plain words, the conditions a customer needs before responding: service area, what is and is not included, what the customer must provide, notice period, collection or delivery, hours. Pull these from the owner's answers. Work them into each ad naturally and differently: a different sentence in each ad, never the same block of conditions pasted into all three.\n" +
-        "AD 1 must open on the exact thing the owner said stops people from buying, and answer it. If that worry is trust or safety, say who the owner is, how long they have done this, and what customers say.\n" +
+        "AD 1 must open on the exact thing the owner said stops people from buying, and ANSWER it with facts the owner gave: who they are (for example a one-person business), how long they have done this, and what customers say. Naming the worry without answering it is a failure.\n" +
+        "THE THREE ADS MUST READ DIFFERENTLY: different first lines, different lengths (one short, one medium, one longer), different structure. Do not repeat the same sentences across ads. Each ad ends with the owner's action in natural words, for example \"WhatsApp us\" when the owner said WhatsApp, never \"send a WhatsApp to arrange\".\n" +
         "STYLE RULES: lead with the specific benefit the owner described, use the words their happy customers actually use, and end every ad with the one action the owner wants (" + ACTION_HINT + "). Banned phrases: look no further, unforgettable, dream, we have got you covered, elevate, game-changing, treat yourself, your one-stop, discover, indulge, perfect for every occasion. No exclamation marks in headlines. No dashes as breaks.\n" +
         "Format them exactly like this:\n\n" +
         "AD 1 - PROBLEM\nHeadline: [headline]\n[body]\n\nAD 2 - RESULT\nHeadline: [headline]\n[body]\n\nAD 3 - SOCIAL PROOF\nHeadline: [headline]\n[body]\n\n" +
@@ -178,25 +198,17 @@ export async function POST(req: Request) {
     stageInstruction(body);
 
   try {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://indabaai.vercel.app",
-        "X-Title": "IndabaAI",
-      },
-      body: JSON.stringify({
+    const ask = (extraInstruction = "") =>
+      callOpenRouter(apiKey, {
         model: getModelName(),
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
+          { role: "user", content: userMessage + extraInstruction },
         ],
         temperature: 0.7,
         max_tokens: 1200,
-        provider: PROVIDER_RULES,
-      }),
-    });
+      });
+    const res = await ask();
 
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
@@ -236,14 +248,6 @@ export async function POST(req: Request) {
         const check = (m[2] || "").trim();
         return NextResponse.json({ text: offer, note: check });
       }
-      // No marker: take the first real sentence as the offer and the rest as the note.
-      const lines = out
-        .split("\n")
-        .map((l) => l.trim())
-        .filter((l) => l && !/^(here'?s|here is|the proposed|using the|offer template|proposed offer)/i.test(l) && !/template/i.test(l));
-      const offerLine = lines.find((l) => !/^(check|inline honesty|honesty)/i.test(l)) || out;
-      const rest = lines.filter((l) => l !== offerLine).join(" ").replace(/^(inline honesty check|honesty check|check):?\s*/i, "");
-      return NextResponse.json({ text: offerLine.replace(/^[*_"]+|[*_"]+$/g, ""), note: rest });
     }
 
     if (body.stage === "ads" || body.stage === "ads_fix") {

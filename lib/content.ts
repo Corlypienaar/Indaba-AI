@@ -78,4 +78,26 @@ export function getModelName(): string {
 
 // Only Meta Llama answers, through providers that do not log or train on prompts.
 // allow_fallbacks: false means OpenRouter fails rather than switching to another model.
-export const PROVIDER_RULES = { allow_fallbacks: false, data_collection: "deny" } as const;
+export const PROVIDER_RULES = { allow_fallbacks: false, data_collection: "deny", sort: "throughput" } as const;
+
+// One call to OpenRouter. On a 429 (too many requests) it waits 5 seconds and tries once more
+// before giving up, so a busy minute does not turn into an error on the owner's screen.
+export async function callOpenRouter(apiKey: string, payload: Record<string, unknown>): Promise<Response> {
+  const send = () =>
+    fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://indaba-ai.vercel.app",
+        "X-Title": "IndabaAI",
+      },
+      body: JSON.stringify({ ...payload, provider: PROVIDER_RULES }),
+    });
+  let res = await send();
+  if (res.status === 429) {
+    await new Promise((r) => setTimeout(r, 5000));
+    res = await send();
+  }
+  return res;
+}
