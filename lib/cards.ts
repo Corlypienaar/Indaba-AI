@@ -310,10 +310,10 @@ const whatsapp: Card = {
     },
     {
       id: "goal",
-      text: "What would you like WhatsApp to do for you?",
+      text: "What would you like WhatsApp to do for you? Pick all that apply.",
       help: "Pick the one that would make the biggest difference this month.",
-      type: "choice",
-      options: ["Bring in more customers", "Help me reply faster", "Help me follow up better", "Help me send offers", "All of it"],
+      type: "multi",
+      options: ["Bring in more customers", "Help me reply faster", "Help me follow up better", "Help me send offers"],
     },
   ],
   calculate: () => ({}),
@@ -774,9 +774,9 @@ const staff: Card = {
     },
     {
       id: "kind",
-      text: "Which is closest to the situation?",
+      text: "What is the situation about? Pick all that apply.",
       help: "Pick the one that fits best. If a few apply, pick the biggest one.",
-      type: "choice",
+      type: "multi",
       options: ["Work quality or mistakes", "Being late or absent", "Attitude or conflict with others", "Trust or honesty", "I need to cut hours or costs", "Something else"],
     },
     {
@@ -789,10 +789,10 @@ const staff: Card = {
     },
     {
       id: "written",
-      text: "Do you have anything in writing: a contract, job description, written warnings, or notes of past conversations?",
+      text: "What do you have in writing? Pick all that apply.",
       help: "Even WhatsApp messages or a diary note with a date count as a record.",
-      type: "choice",
-      options: ["Contract and notes", "Contract only", "Notes only", "Nothing in writing", "Not sure"],
+      type: "multi",
+      options: ["A contract", "A job description", "Written warnings", "Notes or messages with dates", "Nothing in writing"],
     },
     {
       id: "part",

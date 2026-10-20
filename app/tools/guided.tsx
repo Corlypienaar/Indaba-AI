@@ -60,6 +60,19 @@ export default function Guided({ slug }: { slug: string }) {
     }
   }
 
+  function goBack() {
+    if (qIndex === 0) return;
+    const prev = qIndex - 1;
+    const prevQ = card.questions[prev];
+    const rest = { ...answers };
+    delete rest[prevQ.id];
+    setAnswers(rest);
+    setSkipped(skipped.filter((t) => t !== prevQ.text));
+    setQIndex(prev);
+    add("app", "No problem. Here is that question again.");
+    askQuestion(prev);
+  }
+
   function start() {
     setStage("asking");
     setMessages([]);
@@ -232,6 +245,11 @@ export default function Guided({ slug }: { slug: string }) {
                   <button className="chip muted" onClick={() => answer("", true)}>
                     Skip this question
                   </button>
+                  {qIndex > 0 && (
+                    <button className="chip muted" onClick={goBack}>
+                      Change my last answer
+                    </button>
+                  )}
                 </div>
               </>
             )}
