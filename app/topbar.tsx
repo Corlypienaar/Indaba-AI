@@ -9,11 +9,7 @@ export default function TopBar() {
     <>
       <header className="topbar">
         <Link href="/" className="brand" aria-label="IndabaAI home">
-          <Image src="/logo.png" alt="" width={74} height={43} priority />
-          <span>
-            <span className="brand-mark">Indaba</span>
-            <span className="brand-ai">AI</span>
-          </span>
+          <Image src="/logo.png" alt="IndabaAI" width={74} height={43} priority />
         </Link>
         <div className="tagline">Powered by Meta Llama</div>
       </header>
