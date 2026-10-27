@@ -19,7 +19,22 @@ export default function Home() {
           <p className="eyebrow">
             Made for South African small businesses and entrepreneurs. Free. No sign-up.
           </p>
-          <h1>Start or grow your business with AI, from today.</h1>
+          <h1>
+            Start or{" "}
+            <span className="squig">
+              grow
+              <svg preserveAspectRatio="none" viewBox="0 0 100 12" aria-hidden="true">
+                <path
+                  d="M2 8 Q 15 2 28 7 T 54 7 T 78 6 T 98 7"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>{" "}
+            your business with AI, from today.
+          </h1>
           <p className="home-sub">
             You don&apos;t need to master AI. You just need to start. Answer a few
             simple questions and IndabaAI drafts your ads, helps you review your
