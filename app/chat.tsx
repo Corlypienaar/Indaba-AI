@@ -5,7 +5,7 @@ import Link from "next/link";
 import TopBar from "./topbar";
 import { AI_NUMBERS_CAUTION } from "@/lib/numbers";
 import type { Question } from "@/lib/content";
-import { Ad, Issue, LaunchLine, CheckItem, CONCEPT_LABEL, LIMITS, noUrgency } from "@/lib/adspec";
+import { Ad, Issue, LaunchLine, CheckItem, CONCEPT_LABEL, LIMITS, IMAGE_NOTES, noUrgency } from "@/lib/adspec";
 
 type Msg = { role: "app" | "user"; text: string };
 type Answers = Record<string, string>;
@@ -538,8 +538,7 @@ function adAsText(ad: Ad): string {
     "",
     `Image prompt: ${ad.imagePrompt}`,
     "",
-    ad.addAfterwards,
-    ad.cropAndCheck,
+    ...IMAGE_NOTES,
   ].join("\n");
 }
 
@@ -569,14 +568,16 @@ function AdCard({ ad, issues, whatsappDigits }: { ad: Ad; issues: Issue[]; whats
       <Field label="Headline" value={ad.headline} limit={LIMITS.headline} />
       <Field label="Description" value={ad.description} limit={LIMITS.description} />
       <Field label="CTA button" value={ad.cta} noCopy />
-      <Field label="On-screen text" value={ad.onScreen} wordLimit={LIMITS.onScreenMax} />
+      <Field label="On-screen text (the heading on your image)" value={ad.onScreen} wordLimit={LIMITS.onScreenMax} />
       <Field label="Offer badge" value={ad.badge} />
 
       <div className="creative">
         <b>Your picture</b>
         <Field label="Image prompt (copy and paste into Meta AI, ChatGPT, Gemini or Canva)" value={ad.imagePrompt} />
-        {ad.addAfterwards && <p className="ad-meta">{ad.addAfterwards}</p>}
-        {ad.cropAndCheck && <p className="ad-meta">{ad.cropAndCheck}</p>}
+        <p className="ad-meta">The heading on the image is your on-screen text and the sticker is your offer badge, both written into the prompt.</p>
+        {IMAGE_NOTES.map((n) => (
+          <p key={n} className="ad-meta">{n}</p>
+        ))}
       </div>
 
       {ad.whatsappGreeting && (

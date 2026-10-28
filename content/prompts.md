@@ -52,11 +52,11 @@ Who is it for? What is it? Why you? (one specific proof point) What's the deal? 
 - Headline: the offer or an answer to the objection in answer 7. Max 27 characters.
 - Description: extra reassurance. Max 27 characters.
 - CTA button: choose one from Meta's list to match answer 8 (Send WhatsApp message, Call now, Book now, Shop now, Get quote, Learn more). The same button in all 3 ads.
-- On-screen text: 3 to 7 words, the hook or the offer.
+- On-screen text: the hook in 3 to 7 words, which also becomes the heading on the image. Ad 1 the customer's problem as a short question, Ad 2 the proof or result, Ad 3 the surprising fact. Never the price; the offer badge carries that.
 - Offer badge text: e.g. "From R1,499".
 
 === COPY-AND-PASTE IMAGE PROMPT (for each ad) ===
-Write a complete, standalone image prompt that the business owner can paste directly into an AI image tool (ChatGPT, Gemini, Meta AI, Canva). It must NOT refer to "the business above" or "answer 2": write out every detail in full, as one clear paragraph in plain English.
+Write a complete, standalone image prompt that the business owner can paste directly into an AI image tool (ChatGPT, Gemini, Meta AI, Canva). It must NOT refer to "the business above" or to answer numbers: write out every detail in full, as one clear paragraph in plain English.
 
 The image prompt must specify:
 - Format: vertical 9:16 portrait, 1440x2560 pixels.
@@ -64,14 +64,15 @@ The image prompt must specify:
 - ONE clear focal point (the product, the result or a person), recognisable at thumbnail size.
 - A real-looking South African person (staff member, customer, or hands using the product), with eye contact where it makes sense.
 - The product or result in a recognisable local setting that matches the customers and area.
-- A scene that fits the hook: Ad 1 = the problem moment with the solution arriving; Ad 2 = the result, a before/after split screen, or a happy customer; Ad 3 = an intriguing close-up or the "common mistake" moment.
+- A scene that fits the hook: Ad 1 = the problem moment with the solution arriving; Ad 2 = the result, a before/after split screen, or a happy customer; Ad 3 = an intriguing close-up that makes people curious.
 - A simple, uncluttered background.
-- Empty space: keep the top 14%, bottom 35% and 6% on each side free of faces and key detail, so text and Meta's buttons don't cover anything.
-- No text, no logos, no watermarks in the image.
 
-For each ad also write:
-- addAfterwards: "Add afterwards in Canva or Meta Ads Manager:" followed by the on-screen text, the offer badge and where to place each, plus a small logo in a corner inside the safe zone.
-- cropAndCheck: "Then crop to 4:5 (feed) and 1:1 (carousel). Check: does this look like your real product, premises and team? If not, use a real photo instead."
+TEXT ON THE IMAGE (include in the prompt, with the exact words in quotation marks):
+- Heading: the ad's on-screen text, which is the hook in a few words. Large, bold, sans-serif letters in white or a high-contrast colour, with a subtle shadow or a solid colour band behind it so it is readable on a phone. Place it in the upper third of the image, a little below the top edge.
+- Offer badge: a rounded rectangle or circle sticker with the offer badge text. Bold, high-contrast colours. Place it in the lower-middle of the image, well above the bottom edge.
+- The prompt must tell the AI: "Spell the text exactly as written, with no extra words."
+- No other text, no logos, no watermarks.
+- Keep the very top and bottom of the image and the side edges clear of text and faces, because Meta's buttons and captions cover those areas.
 
 === RULES ===
 - Use ONLY the facts provided. Don't invent numbers, reviews, results or deadlines. If a key fact is missing and the ad cannot be written honestly without it, write [NEEDED: ...] in that field; otherwise leave the point out.

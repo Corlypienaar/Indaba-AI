@@ -17,9 +17,7 @@ export type Ad = {
   cta: string; // Meta button label, identical across the 3 ads
   onScreen: string; // 3 to 7 words
   badge: string; // offer badge, e.g. "From R1,499"
-  imagePrompt: string; // standalone, 9:16
-  addAfterwards: string;
-  cropAndCheck: string;
+  imagePrompt: string; // standalone, 9:16, quotes the heading and badge
   whatsappGreeting: string; // only when the contact method is WhatsApp
 };
 
@@ -106,8 +104,6 @@ export function cleanAd(ad: Ad): Ad {
     onScreen: tidy(ad.onScreen),
     badge: tidy(ad.badge),
     imagePrompt: (ad.imagePrompt || "").replace(/```/g, "").trim(),
-    addAfterwards: (ad.addAfterwards || "").trim(),
-    cropAndCheck: (ad.cropAndCheck || "").trim(),
     whatsappGreeting: tidy(ad.whatsappGreeting)
       .replace(/\+?\d{2,3}[ -]?\d{3}[ -]?\d{4}/g, "")
       .replace(/\s+([,.?])/g, "$1")
@@ -163,6 +159,14 @@ export function checkAd(ad: Ad, facts: Facts, others: Ad[]): Issue[] {
   if (os < LIMITS.onScreenMin || os > LIMITS.onScreenMax) push("on-screen text", `must be ${LIMITS.onScreenMin} to ${LIMITS.onScreenMax} words`);
   if (!ad.imagePrompt || ad.imagePrompt.length < 200) push("image prompt", "too short to paste into an image tool, write the full standalone paragraph");
   else if (/the business above|answer \d|business details/i.test(ad.imagePrompt)) push("image prompt", "refers to the brief instead of spelling out the details");
+  else {
+    const ip = ad.imagePrompt.toLowerCase();
+    if (ad.onScreen && !ip.includes(ad.onScreen.toLowerCase())) push("image prompt", `must include the heading text in quotation marks: "${ad.onScreen}"`);
+    if (ad.badge && !ip.includes(ad.badge.toLowerCase())) push("image prompt", `must include the offer badge text in quotation marks: "${ad.badge}"`);
+    if (!/spell/.test(ip)) push("image prompt", 'must tell the AI: "Spell the text exactly as written, with no extra words."');
+  }
+  if (ad.onScreen && ad.badge && ad.onScreen.toLowerCase() === ad.badge.toLowerCase()) push("on-screen text", "must be the hook, not the price (the badge carries the price)");
+  if (ad.onScreen && /\bR\s?\d/.test(ad.onScreen)) push("on-screen text", "no price here, the offer badge carries it; use the hook");
 
   // The hook shape and the action
   if (ad.concept === "problem" && ad.primary && !/\?/.test(ad.primary.split(/(?<=[.?!])\s/)[0] || "")) push("primary text", "ad 1 must open with the customer's frustration as a question ending in ?");
@@ -248,6 +252,14 @@ export function urgencyMissing(facts: Facts, ads: Ad[]): boolean {
   return hits < Math.min(2, want.length);
 }
 
+// The lines shown under every image prompt. Built in code so they are always exactly right.
+export const IMAGE_NOTES = [
+  "Add afterwards: a small logo in a corner, inside the safe zone.",
+  "Check the spelling of the heading and badge. If it is wrong, regenerate, or add the text in Canva instead.",
+  "Then crop to 4:5 (feed) and 1:1 (carousel), checking the text is not cut off.",
+  "Check: does this look like your real product, premises and team? If not, use a real photo instead.",
+];
+
 // ---------- JSON helpers ----------
 
 export function extractJson(text: string): unknown {
@@ -275,8 +287,6 @@ export function toAd(raw: unknown, fallbackId: number, concept: Concept): Ad {
     onScreen: str(r.onScreen ?? r.onScreenText ?? r.on_screen_text),
     badge: str(r.badge ?? r.offerBadge ?? r.offer_badge),
     imagePrompt: str(r.imagePrompt ?? r.image_prompt),
-    addAfterwards: str(r.addAfterwards ?? r.add_afterwards),
-    cropAndCheck: str(r.cropAndCheck ?? r.crop_and_check),
     whatsappGreeting: str(r.whatsappGreeting ?? r.whatsapp_greeting),
   });
 }
