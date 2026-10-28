@@ -3,36 +3,29 @@
 // Shared by the API route (server) and the chat screen (client), so nothing in here
 // touches the file system or the network.
 
-import { parseNumber } from "./numbers";
-
-export type Answers = Record<string, string>; // keyed by question key: business, area, offer, ...
+export type Answers = Record<string, string>; // keyed by question key: business, customers, problem, ...
 
 export type Concept = "problem" | "proof" | "curiosity";
 
 export type Ad = {
   id: number;
   concept: Concept;
-  hook: string;
-  primary: string[]; // 3 variants, each up to 125 characters
+  primary: string; // 50 to 150 characters, key message in the first 125
+  reels: string; // up to 40
   headline: string; // up to 27
   description: string; // up to 27
-  cta: string; // Meta button label
-  onImage: string; // 3 to 7 words
-  claims: { claim: string; source: string }[];
-};
-
-export type Creative = {
-  id: number;
-  shotList: string;
-  imagePrompt45: string;
-  imagePrompt916: string;
-  videoScript: string;
-  whatsappGreeting: string;
+  cta: string; // Meta button label, identical across the 3 ads
+  onScreen: string; // 3 to 7 words
+  badge: string; // offer badge, e.g. "From R1,499"
+  imagePrompt: string; // standalone, 9:16
+  addAfterwards: string;
+  cropAndCheck: string;
+  whatsappGreeting: string; // only when the contact method is WhatsApp
 };
 
 export type Issue = { adId: number; field: string; reason: string };
 
-export const LIMITS = { primary: 125, headline: 27, description: 27, hookWords: 10, onImageMin: 3, onImageMax: 7 };
+export const LIMITS = { primaryMin: 50, primaryMax: 150, primaryKey: 125, reels: 40, headline: 27, description: 27, onScreenMin: 3, onScreenMax: 7 };
 
 export const CONCEPT_LABEL: Record<Concept, string> = {
   problem: "Problem call-out",
@@ -40,14 +33,21 @@ export const CONCEPT_LABEL: Record<Concept, string> = {
   curiosity: "Curiosity and bold claim",
 };
 
+export const CTA_FOR_METHOD: Record<string, string> = {
+  whatsapp: "Send WhatsApp message",
+  call: "Call now",
+  "book online": "Book now",
+  "shop online": "Shop now",
+  "visit us": "Learn more",
+};
+
 // ---------- Facts pulled from the answers ----------
 
 export type Facts = {
   answers: Answers;
-  price: number | null;
-  cost: number | null;
   hasUrgency: boolean;
-  urgencyText: string;
+  contactMethod: string; // whatsapp, call, book online, shop online, visit us, or ""
+  cta: string;
   whatsappDigits: string; // 27XXXXXXXXX or "" when not found
   allowedNumbers: Set<string>; // every number the owner typed, so the copy can be checked
 };
@@ -57,68 +57,70 @@ export function noUrgency(text: string): boolean {
 }
 
 export function buildFacts(answers: Answers): Facts {
-  const offer = answers.offer || "";
-  const priceMatch = offer.match(/R\s?(\d[\d ,]*(?:\.\d+)?)/i);
-  const price = priceMatch ? parseFloat(priceMatch[1].replace(/[ ,]/g, "")) : parseNumber(offer, "money");
-  const cost = answers.cost ? parseNumber(answers.cost, "money") : null;
-  const urgencyText = answers.urgency || "";
-  const hasUrgency = !noUrgency(urgencyText);
-
+  const hasUrgency = !noUrgency(answers.urgency || "");
   const contact = answers.contact || "";
+  const methodMatch = contact.toLowerCase().match(/^(whatsapp|call|book online|shop online|visit us)/);
+  const contactMethod = methodMatch ? methodMatch[1] : /whatsapp/i.test(contact) ? "whatsapp" : "";
+  const cta = CTA_FOR_METHOD[contactMethod] || "Learn more";
+
   const digitsOnly = contact.replace(/[^\d+]/g, "");
   let whatsappDigits = "";
   const m = digitsOnly.match(/(?:\+?27|0)(\d{9})/);
-  if (m) whatsappDigits = "27" + m[1];
+  if (m && contactMethod === "whatsapp") whatsappDigits = "27" + m[1];
 
   const allowedNumbers = new Set<string>();
   for (const key of Object.keys(answers)) {
     const text = (answers[key] || "").replace(/(\d)[ ,](?=\d{3}\b)/g, "$1");
     for (const n of text.match(/\d+(?:\.\d+)?/g) || []) allowedNumbers.add(String(parseFloat(n)));
   }
-  if (price !== null) allowedNumbers.add(String(price));
-  if (cost !== null) allowedNumbers.add(String(cost));
 
-  return { answers, price, cost, hasUrgency, urgencyText, whatsappDigits, allowedNumbers };
+  return { answers, hasUrgency, contactMethod, cta, whatsappDigits, allowedNumbers };
 }
 
 // ---------- Cleaning and auto-fixes ----------
 
 const CASING: [RegExp, string][] = [
   [/whats\s?app/gi, "WhatsApp"],
-  [/hairsalon/gi, "hair salon"],
   [/\bR\s+(\d)/g, "R$1"],
-  [/\br(\d{2,})/g, "R$1"],
+  [/\br(\d{2,})\b/g, "R$1"],
   [/\s+([,.!?])/g, "$1"],
-  [/\s{2,}/g, " "],
+  [/[ \t]{2,}/g, " "],
   [/\s[-–—]\s/g, ". "],
 ];
 
 export function tidy(text: string): string {
   let t = (text || "").replace(/\*\*|__|^#+\s*/g, "").trim();
   for (const [re, to] of CASING) t = t.replace(re, to);
-  // Labels that sometimes leak into a field.
-  t = t.replace(/^(hook|headline|description|primary text( \d)?|on[- ]image text|cta|button)\s*:\s*/i, "").trim();
+  t = t.replace(/^(hook|headline|description|primary text|reels( primary text)?|on[- ]screen text|cta( button)?|button|offer badge|badge)\s*:\s*/i, "").trim();
   return t;
 }
 
 export function cleanAd(ad: Ad): Ad {
   return {
     ...ad,
-    hook: tidy(ad.hook),
-    primary: (ad.primary || []).map(tidy).filter(Boolean).slice(0, 3),
+    primary: tidy(ad.primary),
+    reels: tidy(ad.reels),
     headline: tidy(ad.headline).replace(/!+$/, ""),
     description: tidy(ad.description),
-    cta: tidy(ad.cta) || "Send WhatsApp message",
-    onImage: tidy(ad.onImage),
-    claims: Array.isArray(ad.claims) ? ad.claims : [],
+    cta: tidy(ad.cta),
+    onScreen: tidy(ad.onScreen),
+    badge: tidy(ad.badge),
+    imagePrompt: (ad.imagePrompt || "").replace(/```/g, "").trim(),
+    addAfterwards: (ad.addAfterwards || "").trim(),
+    cropAndCheck: (ad.cropAndCheck || "").trim(),
+    whatsappGreeting: tidy(ad.whatsappGreeting)
+      .replace(/\+?\d{2,3}[ -]?\d{3}[ -]?\d{4}/g, "")
+      .replace(/\s+([,.?])/g, "$1")
+      .trim(),
   };
 }
 
 // ---------- Checks ----------
 
-const LEAKS = /headline:|offer sentence|no specific deadline|no deadline|the user\b|interview|holds up|primary text|\[[^\]]*\]|note for dev|placeholder/i;
+const LEAKS = /headline:|primary text|the user\b|interview|holds up|note for dev|placeholder|answer \d/i;
 const URGENCY_WORDS = /\b(limited|hurry|today only|last chance|while stocks last|don'?t miss|before it'?s gone|this week only|only \d+ (slots?|spots?|spaces?)|ends (soon|friday|sunday|today)|act now|book now before)\b/i;
-const VAGUE = /\b(the best|best \w+ in|number one|#1|loved by thousands|quality service|professional service|reliable service|top rated|guaranteed)\b/i;
+const VAGUE = /\b(the best|best \w+ in|number one|#1|loved by thousands|quality service|professional service|reliable service|top rated)\b/i;
+const NEEDED = /\[needed:[^\]]*\]/gi;
 
 function words(text: string): Set<string> {
   return new Set(
@@ -134,46 +136,42 @@ function wordCount(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;
 }
 
+function firstLine(text: string): string {
+  return (text.split(/[.?!]/)[0] || "").trim().toLowerCase();
+}
+
 export function checkAd(ad: Ad, facts: Facts, others: Ad[]): Issue[] {
   const issues: Issue[] = [];
   const push = (field: string, reason: string) => issues.push({ adId: ad.id, field, reason });
-  const allText = [ad.hook, ...ad.primary, ad.headline, ad.description, ad.onImage].join(" ");
+  const copyText = [ad.primary, ad.reels, ad.headline, ad.description, ad.onScreen, ad.badge].join(" ");
+  const copyNoNeeded = copyText.replace(NEEDED, "");
   const ownerText = Object.values(facts.answers).join(" ").toLowerCase();
 
   // Lengths
-  if (!ad.hook) push("hook", "missing");
-  else if (wordCount(ad.hook) > LIMITS.hookWords) push("hook", `over ${LIMITS.hookWords} words`);
-  if (ad.primary.length < 3) push("primary", "needs 3 variants");
-  ad.primary.forEach((p, i) => {
-    if (p.length > LIMITS.primary) push(`primary ${i + 1}`, `over ${LIMITS.primary} characters (${p.length})`);
-    else if (p.length < 70) push(`primary ${i + 1}`, "too short, write 2 to 4 full sentences (90 to 125 characters)");
-    else if (!/[.?!]\s+\S/.test(p)) push(`primary ${i + 1}`, "one long phrase, write it as 2 to 4 full sentences");
-    else if ((p.match(/,/g) || []).length >= 4 && (p.match(/[.?!]/g) || []).length < 2) push(`primary ${i + 1}`, "a comma list of facts, write sentences instead");
-  });
-  if (ad.hook && wordCount(ad.hook) < 3) push("hook", "too short to stop a scroll, write a full line (a question, the quote or the myth)");
-  if (ad.headline && ad.headline.length < 10) push("headline", "too short, use the offer or answer an objection");
-
-  // Pasted answers: an owner answer of 5+ words appearing word for word in the ad text.
-  // The quote, the problem and the myth are meant to be used as said, so they are allowed.
-  const bodyText = [...ad.primary, ad.headline, ad.description].join(" ").toLowerCase();
-  for (const key of ["business", "offer", "customer", "proof", "whyyou", "contact"]) {
-    const ans = (facts.answers[key] || "").trim().toLowerCase().replace(/[.!?]+$/, "");
-    if (ans.split(/\s+/).length >= 5 && bodyText.includes(ans)) {
-      push("copy", `pastes the owner's "${key}" answer word for word, rewrite it as ad copy`);
-      break;
-    }
-  }
+  if (!ad.primary) push("primary text", "missing");
+  else if (ad.primary.length > LIMITS.primaryMax) push("primary text", `over ${LIMITS.primaryMax} characters (${ad.primary.length})`);
+  else if (ad.primary.length < LIMITS.primaryMin) push("primary text", `under ${LIMITS.primaryMin} characters, write 2 to 4 full sentences`);
+  else if (!/[.?!]\s+\S/.test(ad.primary)) push("primary text", "one long phrase, write it as 2 to 4 full sentences");
+  else if ((ad.primary.match(/,/g) || []).length >= 4 && (ad.primary.match(/[.?!]/g) || []).length < 2) push("primary text", "a comma list of facts, write sentences instead");
+  if (!ad.reels) push("reels text", "missing");
+  else if (ad.reels.length > LIMITS.reels) push("reels text", `over ${LIMITS.reels} characters (${ad.reels.length})`);
   if (!ad.headline) push("headline", "missing");
   else if (ad.headline.length > LIMITS.headline) push("headline", `over ${LIMITS.headline} characters (${ad.headline.length})`);
+  else if (ad.headline.length < 8) push("headline", "too short, use the offer or answer the objection");
   if (ad.description.length > LIMITS.description) push("description", `over ${LIMITS.description} characters (${ad.description.length})`);
-  const oi = wordCount(ad.onImage);
-  if (oi < LIMITS.onImageMin || oi > LIMITS.onImageMax) push("on-image text", `must be ${LIMITS.onImageMin} to ${LIMITS.onImageMax} words`);
+  const os = wordCount(ad.onScreen);
+  if (os < LIMITS.onScreenMin || os > LIMITS.onScreenMax) push("on-screen text", `must be ${LIMITS.onScreenMin} to ${LIMITS.onScreenMax} words`);
+  if (!ad.imagePrompt || ad.imagePrompt.length < 200) push("image prompt", "too short to paste into an image tool, write the full standalone paragraph");
+  else if (/the business above|answer \d|business details/i.test(ad.imagePrompt)) push("image prompt", "refers to the brief instead of spelling out the details");
 
-  // Leaked labels and notes
-  if (LEAKS.test(allText)) push("copy", "contains an internal note or label");
+  // Same button in every ad
+  if (ad.cta.toLowerCase() !== facts.cta.toLowerCase()) push("button", `must be "${facts.cta}" in every ad`);
+
+  // Leaked labels and notes (NEEDED placeholders are allowed)
+  if (LEAKS.test(copyNoNeeded)) push("copy", "contains an internal note or label");
 
   // Numbers: every number in the copy must come from the owner
-  const cleaned = allText.replace(/(\d)[ ,](?=\d{3}\b)/g, "$1");
+  const cleaned = copyNoNeeded.replace(/(\d)[ ,](?=\d{3}\b)/g, "$1");
   for (const n of cleaned.match(/\d+(?:\.\d+)?/g) || []) {
     const v = String(parseFloat(n));
     if (!facts.allowedNumbers.has(v)) {
@@ -182,30 +180,29 @@ export function checkAd(ad: Ad, facts: Facts, others: Ad[]): Issue[] {
     }
   }
 
-  // Price must appear (in the first primary text or the headline) when we have one
-  if (facts.price !== null) {
-    const priceRe = new RegExp("R\\s?" + Math.round(facts.price).toLocaleString("en-ZA").replace(/[ ,]/g, "[ ,]?") + "\\b");
-    if (!priceRe.test(ad.primary[0] || "") && !priceRe.test(ad.headline)) push("price", "the price is missing from the first ad text and headline");
-  }
-
-  // Action
-  if (!/whatsapp/i.test(ad.primary[0] || "")) push("action", "the first ad text does not tell people to WhatsApp");
+  // No phone numbers or links in the copy
+  if (/\b0\d{2}[ -]?\d{3}[ -]?\d{4}\b|\+27|https?:\/\/|www\./i.test(copyText)) push("copy", "contains a phone number or link, the button carries it");
 
   // Urgency only when real
-  if (!facts.hasUrgency && URGENCY_WORDS.test(allText)) push("urgency", "urgency words with no real reason to act now");
+  if (!facts.hasUrgency && URGENCY_WORDS.test(copyText)) push("urgency", "urgency words with no real reason to act now");
 
   // Vague claims unless the owner said them
-  const vague = allText.match(VAGUE);
+  const vague = copyText.match(VAGUE);
   if (vague && !ownerText.includes(vague[0].toLowerCase())) push("claims", `"${vague[0]}" is a vague claim the owner did not back up`);
 
-  // Quote only in the proof concept, and word for word
-  const quote = (facts.answers.quote || "").trim();
-  if (quote && ad.concept !== "proof" && allText.includes(`"${quote}"`)) push("quote", "the customer quote belongs in the proof ad only");
+  // Pasted answers of 6+ words appearing word for word in the primary text (the problem and myth may be used as said)
+  for (const key of ["business", "customers", "proof", "offer", "objection", "contact", "tone"]) {
+    const ans = (facts.answers[key] || "").trim().toLowerCase().replace(/[.!?]+$/, "");
+    if (ans.split(/\s+/).length >= 6 && ad.primary.toLowerCase().includes(ans)) {
+      push("primary text", `pastes the owner's "${key}" answer word for word, rewrite it as ad copy`);
+      break;
+    }
+  }
 
-  // Different from the other ads. Words every ad must share (the product, the area,
-  // WhatsApp, the price) are taken out before comparing, so only the idea is compared.
-  const common = words([facts.answers.business, facts.answers.area, facts.answers.offer, "whatsapp book booking"].join(" "));
-  const idea = (x: Ad) => new Set(Array.from(words([x.hook, x.primary[0], x.headline].join(" "))).filter((w) => !common.has(w)));
+  // Different from the other ads. Words every ad must share (the product, the area, the
+  // offer, the action) are taken out before comparing, so only the idea is compared.
+  const common = words([facts.answers.business, facts.answers.customers, facts.answers.offer, "whatsapp book call shop visit"].join(" "));
+  const idea = (x: Ad) => new Set(Array.from(words([x.primary, x.headline].join(" "))).filter((w) => !common.has(w)));
   for (const o of others) {
     if (o.id === ad.id) continue;
     const a = idea(ad);
@@ -213,7 +210,7 @@ export function checkAd(ad: Ad, facts: Facts, others: Ad[]): Issue[] {
     const shared = Array.from(a).filter((w) => b.has(w)).length;
     const smaller = Math.max(1, Math.min(a.size, b.size));
     if (shared / smaller >= 0.5) push("variety", `too similar to ad ${o.id}`);
-    if (ad.hook.toLowerCase() === o.hook.toLowerCase()) push("hook", `same hook as ad ${o.id}`);
+    if (firstLine(ad.primary) === firstLine(o.primary)) push("primary text", `same first line as ad ${o.id}`);
   }
 
   return issues;
@@ -235,56 +232,40 @@ function str(v: unknown): string {
 
 export function toAd(raw: unknown, fallbackId: number, concept: Concept): Ad {
   const r = (raw || {}) as Record<string, unknown>;
-  const primaryRaw = Array.isArray(r.primary) ? r.primary : r.primary ? [r.primary] : [];
-  const claimsRaw = Array.isArray(r.claims) ? r.claims : [];
   return cleanAd({
     id: Number(r.id) || fallbackId,
     concept,
-    hook: str(r.hook),
-    primary: primaryRaw.map(str),
+    primary: str(r.primary ?? r.primaryText ?? r.primary_text),
+    reels: str(r.reels ?? r.reelsPrimaryText ?? r.reels_primary_text),
     headline: str(r.headline),
     description: str(r.description),
-    cta: str(r.cta),
-    onImage: str(r.onImage ?? r.on_image ?? r.onImageText),
-    claims: claimsRaw.map((c) => {
-      const o = (c || {}) as Record<string, unknown>;
-      return { claim: str(o.claim), source: str(o.source) };
-    }),
+    cta: str(r.cta ?? r.ctaButton ?? r.cta_button),
+    onScreen: str(r.onScreen ?? r.onScreenText ?? r.on_screen_text),
+    badge: str(r.badge ?? r.offerBadge ?? r.offer_badge),
+    imagePrompt: str(r.imagePrompt ?? r.image_prompt),
+    addAfterwards: str(r.addAfterwards ?? r.add_afterwards),
+    cropAndCheck: str(r.cropAndCheck ?? r.crop_and_check),
+    whatsappGreeting: str(r.whatsappGreeting ?? r.whatsapp_greeting),
   });
-}
-
-export function toCreative(raw: unknown, fallbackId: number): Creative {
-  const r = (raw || {}) as Record<string, unknown>;
-  return {
-    id: Number(r.id) || fallbackId,
-    shotList: tidy(str(r.shotList ?? r.shot_list)),
-    imagePrompt45: str(r.imagePrompt45 ?? r.image_prompt_45).trim(),
-    imagePrompt916: str(r.imagePrompt916 ?? r.image_prompt_916).trim(),
-    videoScript: str(r.videoScript ?? r.video_script).trim(),
-    whatsappGreeting: tidy(str(r.whatsappGreeting ?? r.whatsapp_greeting))
-      .replace(/,?\s*(please\s+)?(call|phone)( or WhatsApp)?\s*(us\s*)?(on\s*)?(\+?\d[\d ]{7,}\d)\s*\??/gi, "?")
-      .replace(/\+?\d{2,3}[ -]?\d{3}[ -]?\d{4}/g, "")
-      .replace(/\s+([,.?])/g, "$1")
-      .replace(/\?\s*\?/g, "?")
-      .trim(),
-  };
 }
 
 // ---------- Launch card and checklist (no AI, built from the answers) ----------
 
-export function rand(x: number): string {
-  return "R" + Math.round(x).toLocaleString("en-ZA");
-}
-
 export type LaunchLine = { title: string; text: string };
 
 export function buildLaunchCard(facts: Facts): LaunchLine[] {
-  const area = facts.answers.area?.trim();
-  const lines: LaunchLine[] = [
-    {
-      title: "Where to set it up",
-      text: "Use Ads Manager, not the blue Boost button. Choose the Engagement or Leads goal with Messaging apps, and pick WhatsApp. This makes it a Click-to-WhatsApp ad, so the button opens a chat with you.",
-    },
+  const area = facts.answers.customers?.trim();
+  const method = facts.contactMethod;
+  const objective =
+    method === "whatsapp"
+      ? "Choose the Engagement or Leads goal with Messaging apps, and pick WhatsApp. This makes it a Click-to-WhatsApp ad, so the button opens a chat with you."
+      : method === "call"
+        ? "Choose the Leads goal with Calls, so the button dials your number."
+        : method === "book online" || method === "shop online"
+          ? "Choose the Sales or Leads goal with Website, and put your booking or shop link as the destination. The page must show the same offer as the ad."
+          : "Choose the Awareness or Engagement goal and set your address, so people can find you.";
+  return [
+    { title: "Where to set it up", text: "Use Ads Manager, not the blue Boost button. " + objective },
     {
       title: "Audience",
       text:
@@ -294,53 +275,39 @@ export function buildLaunchCard(facts: Facts): LaunchLine[] {
     },
     {
       title: "Ads",
-      text: "Put all three ads in one ad set. Meta will show each one and learn which hook your customers respond to.",
+      text: "Put all three ads in one ad set with the same offer and button. Meta shows each one and learns which opening your customers respond to. That is the whole point of three different openings.",
+    },
+    {
+      title: "Testing",
+      text: "Leave the ads alone for 5 to 7 days and about 1,000 views each. Then judge them in this order: how many people stopped to watch or read, then how many clicked, then what one lead cost you. Pause the weakest, and every 2 to 3 weeks add a new version of the winner.",
+    },
+    {
+      title: "Reply fast",
+      text:
+        method === "whatsapp"
+          ? "Someone must answer the WhatsApp within minutes. Save the greeting from each ad as a quick reply in WhatsApp Business so the first message matches what the ad promised."
+          : "Someone must respond within minutes of a call, booking or order. A slow reply loses the lead the ad just paid for.",
     },
   ];
-
-  if (facts.price !== null && facts.cost !== null) {
-    const left = facts.price - facts.cost;
-    lines.push({
-      title: "Most you can spend per booking",
-      text:
-        left > 0
-          ? `You charge ${rand(facts.price)} and one job costs you about ${rand(facts.cost)}, so ${rand(left)} is left per booking before your own time. That is your break-even. A healthy target is to spend about a third of it, around ${rand(left / 3)}, to win one WhatsApp booking.`
-          : `You charge ${rand(facts.price)} and one job costs you about ${rand(facts.cost)}, so nothing is left per booking before your own time. Check your price before you spend on ads.`,
-    });
-  }
-
-  lines.push({
-    title: "Testing",
-    text: "Leave the ads alone for 5 to 7 days and about 1,000 views each. Then judge them in this order: how many people stopped to watch or read, then how many clicked, then what one WhatsApp chat cost you. Pause the weakest, and every 2 to 3 weeks add a new version of the winner.",
-  });
-  lines.push({
-    title: "Reply fast",
-    text: "Someone must answer the WhatsApp within minutes. Save the greeting from each ad as a quick reply in WhatsApp Business so the first message matches what the ad promised.",
-  });
-  return lines;
 }
 
 export type CheckItem = { label: string; ok: boolean; fix: string };
 
 export function buildChecklist(facts: Facts, ads: Ad[]): CheckItem[] {
   const a = facts.answers;
-  const has = (k: string) => !!(a[k] && a[k].trim() && !/^(skip|not sure)$/i.test(a[k].trim()));
-  const hooks = new Set(ads.map((x) => x.hook.toLowerCase()));
+  const has = (k: string) => !!(a[k] && a[k].trim() && !/^(skip|not sure|none)$/i.test(a[k].trim()));
+  const firsts = new Set(ads.map((x) => firstLine(x.primary)));
+  const needed = ads.some((x) => /\[needed:/i.test([x.primary, x.headline, x.description, x.reels].join(" ")));
   return [
-    { label: "Who it is for", ok: has("customer") || has("area"), fix: "Add your best customer or your area so the ad says who it is for." },
-    { label: "What you sell", ok: has("offer"), fix: "Name the one service or product you are advertising." },
-    { label: "Why you (proof people can check)", ok: has("proof") || has("quote"), fix: "Add your Google rating, number of clients, years open, or a real customer quote." },
-    { label: "The deal (a price)", ok: facts.price !== null, fix: "Add a price or a from price to the offer." },
-    { label: "How to get it (WhatsApp)", ok: !!facts.whatsappDigits, fix: "Add the WhatsApp number people should message." },
-    { label: "Why now (only if real)", ok: true, fix: "" },
-    { label: "Three different hooks", ok: hooks.size === 3, fix: "Two ads share a hook. Tap Try again on the ads." },
-    { label: "A 4:5 and a 9:16 version of each picture", ok: false, fix: "Make both sizes in Canva or Meta AI using the prompts below." },
-    { label: "WhatsApp Business set up with quick replies", ok: false, fix: "Save each ad's greeting as a quick reply before the ads go live." },
-    { label: "Someone ready to reply within minutes", ok: false, fix: "Decide who watches WhatsApp while the ads run." },
+    { label: "Who it is for: the customer or area is named", ok: has("customers"), fix: "Add who your customers are and your area, so Meta knows who to show the ad to." },
+    { label: "What it is: one clear product or service", ok: has("business"), fix: "Name the one thing you are advertising." },
+    { label: "Why you: proof people can check", ok: has("proof"), fix: "Add your rating and number of reviews, years in business, jobs done or a real customer review." },
+    { label: "The deal: a price, from price or offer", ok: has("offer"), fix: "Add a price or a from price." },
+    { label: "How to get it: one clear action and a matching button", ok: !!facts.contactMethod, fix: "Choose how customers should contact you." },
+    { label: "Why now: only if it is real", ok: true, fix: "" },
+    { label: "Three different openings: problem, proof, surprising fact", ok: firsts.size === 3, fix: "Two ads open the same way. Tap Try again." },
+    { label: "Nothing left to fill in", ok: !needed, fix: "A field says [NEEDED]. Add that detail before you post." },
+    { label: "Image made at 9:16, then cropped to 4:5 and 1:1", ok: false, fix: "Use the image prompt, or a real photo, then crop in Canva." },
+    { label: "Someone ready to reply within minutes", ok: false, fix: "Decide who watches the phone or inbox while the ads run." },
   ];
-}
-
-export function whatsappLink(facts: Facts, greeting: string): string {
-  const base = facts.whatsappDigits ? `https://wa.me/${facts.whatsappDigits}` : "https://wa.me/";
-  return greeting ? `${base}?text=${encodeURIComponent(greeting)}` : base;
 }

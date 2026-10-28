@@ -13,7 +13,7 @@ export type MenuItem = {
 export const MENU: MenuItem[] = [
   {
     title: "Help me create ads and social posts",
-    line: "Twelve quick questions become three Meta ads with different hooks, picture plans and a posting plan.",
+    line: "Ten quick questions become three Meta ads that each open a different way, with image prompts and a posting plan.",
     href: "/ads",
     live: true,
     featured: true,

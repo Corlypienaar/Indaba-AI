@@ -35,10 +35,20 @@ export function getSystemPrompt(): string {
   return FALLBACK_SYSTEM;
 }
 
+// The writing prompt is the fenced block under WRITING PROMPT.
+export function getWritingPrompt(): string {
+  try {
+    const text = fenced(section(getContentRaw(), "WRITING PROMPT"));
+    if (text.length > 200) return text;
+  } catch {
+    // fall through
+  }
+  return "Write 3 Facebook/Instagram ads for the business below. Each ad uses a different hook (problem call-out, proof or result, curiosity or bold claim). Keep the offer, call-to-action button and destination identical across all 3 ads. Use only the facts given.\n\n=== BUSINESS DETAILS ===\n1. Business name and product/service: [ANSWER 1]\n2. Customers and area: [ANSWER 2]\n3. Customer's problem (in their words): [ANSWER 3]\n4. Proof (checkable): [ANSWER 4]\n5. Common mistake or myth: [ANSWER 5]\n6. Price or offer: [ANSWER 6]\n7. Main worry or objection: [ANSWER 7]\n8. How to contact/buy and reply speed: [ANSWER 8]\n9. Real reason to act now: [ANSWER 9]\n10. Language, tone, words to use/avoid: [ANSWER 10]";
+}
+
 export type Question = {
   key: string;
   required: boolean;
-  step: string;
   text: string;
   hint: string;
   choices: string[];
@@ -50,18 +60,16 @@ const FALLBACK_SYSTEM =
 // Hard-coded fallback, copied from content/prompts.md, used only if the file
 // can't be parsed (so the app never dies on a formatting typo).
 const FALLBACK_QUESTIONS: Question[] = [
-  { key: "business", required: true, step: "Your business", text: "What's your business called, and what do you sell?", hint: "Thandi's Hair Studio: braids, wigs and natural hair", choices: [] },
-  { key: "area", required: false, step: "Your business", text: "Which area are most of your customers in?", hint: "Protea Glen and Naledi, Soweto", choices: [] },
-  { key: "offer", required: true, step: "Your business", text: "Which ONE service or product do you want to advertise first? What does it cost, and what's included?", hint: "Knotless braids, mid-back, R450, hair included, about 5 hours", choices: [] },
-  { key: "customer", required: false, step: "Your customer", text: "Who is your best customer, and what's going on when they need you?", hint: "Working moms who need neat hair that lasts 6 weeks", choices: [] },
-  { key: "problem", required: false, step: "Your customer", text: "What problem do they come to you with? Use their words.", hint: "My last braids pulled my edges out", choices: [] },
-  { key: "quote", required: false, step: "Your customer", text: "What has a happy customer actually said or sent you? Their exact words.", hint: "Lightest braids I've ever had, no headache", choices: [] },
-  { key: "proof", required: false, step: "Why you", text: "What proof can you show? Number of clients, years open, Google or Facebook rating, repeat customers.", hint: "2 years, about 300 clients, 4.9 stars on Google (40 reviews)", choices: [] },
-  { key: "whyyou", required: false, step: "Why you", text: "Why do people choose you over other places nearby?", hint: "No tension on the edges, done in 5 hours, open Sundays", choices: [] },
-  { key: "myth", required: false, step: "Why you", text: "Is there a common mistake or myth your customers believe?", hint: "That tight braids last longer. They just cause breakage.", choices: [] },
-  { key: "contact", required: true, step: "Getting the sale", text: "What WhatsApp number should people message, and any rules? (deposit, notice, hours)", hint: "WhatsApp 07X XXX XXXX, R100 deposit, 2 days' notice", choices: [] },
-  { key: "urgency", required: false, step: "Getting the sale", text: "Is there a real reason to book now?", hint: "", choices: ["Limited slots this week", "A season or holiday is coming", "An intro price for a short time", "No, nothing special right now"] },
-  { key: "cost", required: false, step: "Getting the sale", text: "Roughly what does one job cost you? Products, petrol, helpers, card fees. A rough total is fine.", hint: "R220", choices: [] },
+  { key: "business", required: true, text: "What is your business name, and what one product or service do you want to advertise?", hint: "Pipe Pros: same-day geyser replacement", choices: [] },
+  { key: "customers", required: false, text: "Who are your customers, and what area do you serve?", hint: "Homeowners in Pretoria East and Centurion", choices: [] },
+  { key: "problem", required: false, text: "What problem makes people contact you? Use the words customers actually say.", hint: "My geyser burst and there's water everywhere", choices: [] },
+  { key: "proof", required: false, text: "Why should they choose you? Give proof they can check: your rating and number of reviews, years in business, jobs done, a guarantee, a real customer review or a before and after result.", hint: "4.8 stars from 312 Google reviews, 60-minute response", choices: [] },
+  { key: "myth", required: false, text: "What mistake do customers often make, or what myth do you keep correcting?", hint: "They replace the whole geyser when only the element is faulty", choices: [] },
+  { key: "offer", required: true, text: "What's the price, \"from\" price or special offer?", hint: "From R1,499 installed, or Free quote", choices: [] },
+  { key: "objection", required: false, text: "What worry or question stops people from buying?", hint: "Is there a call-out fee?", choices: [] },
+  { key: "contact", required: true, text: "How should customers contact you or buy?", hint: "", choices: ["WhatsApp", "Call", "Book online", "Shop online", "Visit us"] },
+  { key: "urgency", required: false, text: "Is there a real reason to act now? For example a deadline, limited slots or a season. Skip it if there isn't one.", hint: "Only 6 install slots left this month", choices: [] },
+  { key: "tone", required: false, text: "What language and tone suit your customers, and are there words you must use or avoid?", hint: "Casual English with some Afrikaans; never say \"cheapest\"", choices: [] },
 ];
 
 export function getQuestions(): Question[] {
@@ -72,12 +80,11 @@ export function getQuestions(): Question[] {
       const m = line.match(/^\s*\d+\.\s+(.*)$/);
       if (!m) continue;
       const parts = m[1].split("|").map((p) => p.trim());
-      if (parts.length < 4) continue;
-      const [key, req, step, text, hint = "", choices = ""] = parts;
+      if (parts.length < 3) continue;
+      const [key, req, text, hint = "", choices = ""] = parts;
       questions.push({
         key,
         required: /^required$/i.test(req),
-        step,
         text,
         hint,
         choices: choices ? choices.split(";").map((c) => c.trim()).filter(Boolean) : [],

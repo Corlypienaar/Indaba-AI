@@ -3,27 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import TopBar from "./topbar";
-import { parseNumber, rand, AI_NUMBERS_CAUTION } from "@/lib/numbers";
+import { AI_NUMBERS_CAUTION } from "@/lib/numbers";
 import type { Question } from "@/lib/content";
-import { Ad, Creative, Issue, LaunchLine, CheckItem, CONCEPT_LABEL, LIMITS, noUrgency } from "@/lib/adspec";
+import { Ad, Issue, LaunchLine, CheckItem, CONCEPT_LABEL, LIMITS, noUrgency } from "@/lib/adspec";
 
 type Msg = { role: "app" | "user"; text: string };
 type Answers = Record<string, string>;
 
-type Stage =
-  | "welcome"
-  | "interview"
-  | "urgency_detail"
-  | "margin_warning"
-  | "confirm"
-  | "fixing"
-  | "writing"
-  | "results"
-  | "error";
+type Stage = "welcome" | "interview" | "contact_detail" | "confirm" | "fixing" | "writing" | "results" | "error";
 
-const STEPS = ["Your business", "Your customer", "Why you", "Getting the sale"];
 const VAGUE = /^(very |really |so )?(good|great|nice|lekker|quality|affordable|friendly|cheap|professional|reliable|the best|excellent|fast|clean)( (service|quality|work|prices?|people|staff))?[.!]?$/i;
-const SKIP = "Skip";
 
 export default function Chat({ questions }: { questions: Question[] }) {
   const [stage, setStage] = useState<Stage>("welcome");
@@ -37,15 +26,13 @@ export default function Chat({ questions }: { questions: Question[] }) {
   const [errorText, setErrorText] = useState("");
   const [helpShown, setHelpShown] = useState(false);
   const [fixKey, setFixKey] = useState<string>("");
-  const [retryWhat, setRetryWhat] = useState<"write" | "creative" | null>(null);
+  const [contactMethod, setContactMethod] = useState("");
 
   // The finished pieces
   const [ads, setAds] = useState<Ad[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [launch, setLaunch] = useState<LaunchLine[]>([]);
   const [checklist, setChecklist] = useState<CheckItem[]>([]);
-  const [creatives, setCreatives] = useState<Creative[]>([]);
-  const [creativeLoading, setCreativeLoading] = useState(false);
   const [whatsappDigits, setWhatsappDigits] = useState("");
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -66,9 +53,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
 
   function askQuestion(i: number, intro?: string) {
     const q = questions[i];
-    const prevStep = i > 0 ? questions[i - 1].step : "";
-    const stepLine = q.step !== prevStep && i > 0 ? `Next: ${q.step.toLowerCase()}. ` : "";
-    addApp((intro ? intro + " " : "") + stepLine + q.text);
+    addApp((intro ? intro + " " : "") + q.text);
     setQIndex(i);
     setReasked(false);
     setVagueAsked(false);
@@ -80,10 +65,10 @@ export default function Chat({ questions }: { questions: Question[] }) {
     setMessages([
       {
         role: "app",
-        text: "Lekker, let's do this. Twelve quick questions in four short steps. Answer in your own words, short is fine. Real numbers and your customers' real words make the best ads.",
+        text: "Lekker, let's do this. Ten quick questions. Answer in your own words, and use real numbers and your customers' own words where you can. Tap \"Show me an example\" under any question if you are not sure.",
       },
     ]);
-    askQuestion(0, "First, your business.");
+    askQuestion(0);
   }
 
   function showHelp() {
@@ -98,66 +83,43 @@ export default function Chat({ questions }: { questions: Question[] }) {
     return ["idk", "dunno", "no idea", "?", "??", "???", "lol"].includes(t);
   }
 
-  function marginWarning(a: Answers): string | null {
-    const price = a.offer ? parseNumber(a.offer, "money") : null;
-    const cost = a.cost ? parseNumber(a.cost, "money") : null;
-    if (price === null || cost === null || price <= 0) return null;
-    const left = price - cost;
-    const share = left / price;
-    if (left > 0 && share >= 0.5) return null;
-    const line =
-      left <= 0
-        ? `Before we write ads, one honest check. You charge about ${rand(price)} and said one job costs you about ${rand(cost)}. That leaves ${left < 0 ? "a loss of " + rand(-left) : "nothing"} before your own time. Ads will bring more of these jobs, so the price needs a look first.`
-        : `Before we write ads, one honest check. You charge about ${rand(price)} and said one job costs you about ${rand(cost)}. That leaves ${rand(left)} before your own time, which is ${Math.round(share * 100)}% of the price. Ads will bring more of these jobs, so it is worth checking the price first.`;
-    return line + " You can carry on with the ads anyway, or review your pricing first. " + AI_NUMBERS_CAUTION;
-  }
-
-  function finishInterview(a: Answers) {
-    const warning = marginWarning(a);
-    if (warning) {
-      addApp(warning);
-      setStage("margin_warning");
-      return;
-    }
-    goConfirm();
-  }
-
   function goConfirm() {
     addApp("Thanks. Here is what goes into your ads. Check it, fix anything that is off, then we write.");
     setStage("confirm");
   }
 
-  function recordAnswer(key: string, value: string, next: boolean) {
+  function recordAnswer(key: string, value: string) {
     const a = { ...answers, [key]: value };
     setAnswers(a);
-    if (!next) return a;
     const nextIndex = qIndex + 1;
-    if (nextIndex < questions.length) {
-      askQuestion(nextIndex);
-    } else {
-      finishInterview(a);
-    }
-    return a;
+    if (nextIndex < questions.length) askQuestion(nextIndex);
+    else goConfirm();
   }
 
   function chooseOption(choice: string) {
     if (loading || !currentQ) return;
     addUser(choice);
-    if (currentQ.key === "urgency" && /season|holiday|intro price/i.test(choice)) {
-      setAnswers({ ...answers, urgency: choice });
-      addApp(/season|holiday/i.test(choice) ? "Which season or holiday, and when does it end?" : "What is the intro price, and until when?");
-      setStage("urgency_detail");
+    if (currentQ.key === "contact") {
+      setContactMethod(choice);
+      addApp(
+        /whatsapp|call/i.test(choice)
+          ? "Give the number, and say how fast you reply. For example: \"072 123 4567, we reply within 10 minutes\"."
+          : /visit/i.test(choice)
+            ? "Give the address and your hours. For example: \"12 Church Street, Centurion, Mon to Sat 8 to 5\"."
+            : "Give the link, and say how fast you confirm. For example: \"mysite.co.za/book, confirmed within the hour\"."
+      );
+      setStage("contact_detail");
       setTimeout(() => inputRef.current?.focus(), 50);
       return;
     }
-    recordAnswer(currentQ.key, /^no\b/i.test(choice) ? "none" : choice, true);
+    recordAnswer(currentQ.key, choice);
   }
 
   function skipQuestion() {
     if (loading || !currentQ) return;
     setInput("");
     addUser("Skip this one");
-    recordAnswer(currentQ.key, "", true);
+    recordAnswer(currentQ.key, currentQ.key === "urgency" ? "none" : "");
   }
 
   async function send() {
@@ -170,38 +132,36 @@ export default function Chat({ questions }: { questions: Question[] }) {
     if (stage === "interview" && currentQ) {
       if (looksLikeNonsense(text) && !reasked) {
         setReasked(true);
-        addApp("No stress, even a rough answer helps. " + currentQ.text + (currentQ.hint ? ` For example: "${currentQ.hint}".` : "") + " Or tap Skip.");
+        addApp("No stress, even a rough answer helps. " + currentQ.text + (currentQ.hint ? ` For example: "${currentQ.hint}".` : "") + (currentQ.required ? "" : " Or tap Skip."));
         return;
       }
       // One follow-up on a vague answer where specifics matter most.
-      const wantsSpecific = ["quote", "proof", "whyyou", "problem"].includes(currentQ.key);
+      const wantsSpecific = ["proof", "problem", "myth"].includes(currentQ.key);
       if (wantsSpecific && !vagueAsked && text.length < 45 && VAGUE.test(text)) {
         setVagueAsked(true);
-        const ask =
-          currentQ.key === "quote"
-            ? "What exactly did they say? Their actual words work best, even a short WhatsApp message."
-            : currentQ.key === "proof"
-              ? "Can you give a number? Years open, how many clients, a rating, or how many come back."
-              : "What exactly do they say about that? One specific detail beats any adjective.";
-        addApp(ask);
+        addApp(
+          currentQ.key === "proof"
+            ? "Can you give something people can check? A rating and number of reviews, years in business, jobs done, or a customer's exact words."
+            : "What exactly do they say? One specific detail beats any adjective."
+        );
         return;
       }
-      recordAnswer(currentQ.key, text, true);
+      recordAnswer(currentQ.key, text);
       return;
     }
 
-    if (stage === "urgency_detail") {
-      const a = { ...answers, urgency: `${answers.urgency}: ${text}` };
+    if (stage === "contact_detail") {
+      const a = { ...answers, contact: `${contactMethod}: ${text}` };
       setAnswers(a);
       setStage("interview");
       const nextIndex = qIndex + 1;
       if (nextIndex < questions.length) askQuestion(nextIndex);
-      else finishInterview(a);
+      else goConfirm();
       return;
     }
 
     if (stage === "fixing" && fixKey) {
-      const a = { ...answers, [fixKey]: text };
+      const a = { ...answers, [fixKey]: fixKey === "contact" && contactMethod && !/^(whatsapp|call|book online|shop online|visit us)/i.test(text) ? `${contactMethod}: ${text}` : text };
       setAnswers(a);
       setFixKey("");
       addApp("Updated. Anything else to fix?");
@@ -219,66 +179,35 @@ export default function Chat({ questions }: { questions: Question[] }) {
     askQuestion(prev, "No problem. Here is that question again:");
   }
 
-  async function post(body: Record<string, unknown>) {
+  async function writeAds(isRetry = false) {
+    setStage("writing");
     setLoading(true);
     setErrorText("");
+    if (!isRetry) addApp("Writing your three ads now, each opening a different way, and checking every line against what you told us. This takes about half a minute...");
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ stage: "write", answers }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
         setErrorText(data.error || "Something went wrong. Tap Try again.");
-        return null;
+        setStage("error");
+        return;
       }
-      return data;
+      setAds(data.ads || []);
+      setIssues(data.issues || []);
+      setLaunch(data.launch || []);
+      setChecklist(data.checklist || []);
+      setWhatsappDigits(data.whatsappDigits || "");
+      addApp("Done. Scroll down for your three ads, the image prompts, how to post them and the checklist. Every field has its own copy button.");
+      setStage("results");
     } catch {
       setErrorText("Couldn't reach the server. Check your connection and tap Try again.");
-      return null;
+      setStage("error");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function writeAds(isRetry = false) {
-    setStage("writing");
-    setRetryWhat("write");
-    if (!isRetry) addApp("Writing your three ads now, each with a different hook, and checking every line against what you told us. This takes about half a minute...");
-    const data = await post({ stage: "write", answers });
-    if (!data) {
-      setStage("error");
-      return;
-    }
-    setAds(data.ads || []);
-    setIssues(data.issues || []);
-    setLaunch(data.launch || []);
-    setChecklist(data.checklist || []);
-    setWhatsappDigits(data.whatsappDigits || "");
-    addApp("Your ads are ready below. We are now planning the pictures and your WhatsApp replies...");
-    setStage("results");
-    await planCreative(data.ads || []);
-  }
-
-  async function planCreative(list: Ad[]) {
-    setRetryWhat("creative");
-    setCreativeLoading(true);
-    const data = await post({ stage: "creative", answers, ads: list });
-    setCreativeLoading(false);
-    if (data) {
-      setCreatives(data.creatives || []);
-      addApp("That's everything. Scroll down for your ads, picture plans and launch plan, each with its own copy button.");
-    } else {
-      addApp("The ads are done. The picture plans did not come through. Tap Try again below the ads to plan them.");
-    }
-  }
-
-  async function retry() {
-    if (retryWhat === "write" || ads.length === 0) await writeAds(true);
-    else {
-      setStage("results");
-      await planCreative(ads);
     }
   }
 
@@ -294,14 +223,11 @@ export default function Chat({ questions }: { questions: Question[] }) {
     setIssues([]);
     setLaunch([]);
     setChecklist([]);
-    setCreatives([]);
     setErrorText("");
-    setRetryWhat(null);
+    setContactMethod("");
   }
 
-  const showInput =
-    (stage === "interview" && currentQ && currentQ.choices.length === 0) || stage === "urgency_detail" || stage === "fixing";
-  const stepIndex = currentQ ? Math.max(0, STEPS.indexOf(currentQ.step)) : 0;
+  const showInput = (stage === "interview" && currentQ && currentQ.choices.length === 0) || stage === "contact_detail" || stage === "fixing";
 
   return (
     <div className="shell">
@@ -312,13 +238,14 @@ export default function Chat({ questions }: { questions: Question[] }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/image.png" alt="IndabaAI logo" className="welcome-logo" />
           <h1>
-            Three Meta ads, written the way <em>Meta says ads should be written</em>.
+            Let&apos;s build ads that <em>stop the scroll</em>.
           </h1>
           <p>
-            We are here to help you get this right. Best practice on Meta is to test at least three ads, each with a
-            different angle, so Meta can find out what your customers respond to. Answer a few questions about your
-            business in your own words, and we give you three ads in Meta&apos;s own format, each with its own hook, a
-            picture plan and an image prompt for Meta AI, plus a simple plan for posting them. About 5 minutes.
+            The best Facebook and Instagram ads grab attention in 3 seconds and tell people who it&apos;s for, what it
+            is, why you, what it costs, how to get it and why now. We&apos;ll write three ads for you, each opening a
+            different way: your customer&apos;s problem, your proof, and a surprising fact. Answer 10 quick questions
+            using real numbers and your customers&apos; own words. The more specific you are, the better your ads will
+            be.
           </p>
           <button className="btn primary big" onClick={start}>
             Start
@@ -332,9 +259,9 @@ export default function Chat({ questions }: { questions: Question[] }) {
         </main>
       ) : (
         <main className="chat">
-          {(stage === "interview" || stage === "urgency_detail") && currentQ && (
+          {(stage === "interview" || stage === "contact_detail") && currentQ && (
             <div className="progress">
-              Step {stepIndex + 1} of {STEPS.length}: {currentQ.step} · Question {qIndex + 1} of {questions.length}
+              Question {qIndex + 1} of {questions.length}
             </div>
           )}
           <div className="messages">
@@ -351,14 +278,14 @@ export default function Chat({ questions }: { questions: Question[] }) {
                     {c}
                   </button>
                 ))}
-                {!helpShown && currentQ.choices.length === 0 && (
+                {!helpShown && currentQ.choices.length === 0 && currentQ.hint && (
                   <button className="chip muted" onClick={showHelp}>
                     Show me an example
                   </button>
                 )}
                 {!currentQ.required && (
                   <button className="chip muted" onClick={skipQuestion}>
-                    {SKIP} this question
+                    {currentQ.key === "urgency" ? "No real reason, skip" : "Skip this question"}
                   </button>
                 )}
                 {qIndex > 0 && (
@@ -383,19 +310,8 @@ export default function Chat({ questions }: { questions: Question[] }) {
             {stage === "error" && !loading && (
               <div className="error-box">
                 <p>{errorText || "Something went wrong."}</p>
-                <button className="btn primary" onClick={retry}>
+                <button className="btn primary" onClick={() => writeAds(true)}>
                   Try again
-                </button>
-              </div>
-            )}
-
-            {stage === "margin_warning" && !loading && (
-              <div className="choices">
-                <Link href="/tools/prices" className="btn primary">
-                  Review my pricing first
-                </Link>
-                <button className="btn ghost" onClick={goConfirm}>
-                  Carry on with the ads
                 </button>
               </div>
             )}
@@ -420,12 +336,10 @@ export default function Chat({ questions }: { questions: Question[] }) {
               <Results
                 ads={ads}
                 issues={issues}
-                creatives={creatives}
-                creativeLoading={creativeLoading}
                 launch={launch}
                 checklist={checklist}
                 whatsappDigits={whatsappDigits}
-                onRetryCreative={() => planCreative(ads)}
+                onRetry={() => writeAds(true)}
                 onStartOver={startOver}
               />
             )}
@@ -463,24 +377,22 @@ export default function Chat({ questions }: { questions: Question[] }) {
 // ---------- Confirm card ----------
 
 const CONFIRM_LABELS: Record<string, string> = {
-  business: "Business",
-  area: "Area",
-  offer: "Offer and price",
-  customer: "Best customer",
-  problem: "Their problem",
-  quote: "Customer quote",
-  proof: "Proof",
-  whyyou: "Why you",
-  myth: "Myth to bust",
-  contact: "WhatsApp and rules",
-  urgency: "Reason to book now",
-  cost: "Cost per job",
+  business: "Business and what you are advertising",
+  customers: "Customers and area",
+  problem: "Their problem, in their words",
+  proof: "Proof people can check",
+  myth: "Mistake or myth",
+  offer: "Price or offer",
+  objection: "Worry that stops people",
+  contact: "How to contact or buy",
+  urgency: "Reason to act now",
+  tone: "Language and tone",
 };
 
 function tidyForCard(key: string, value: string): string {
   let v = (value || "").trim();
   if (!v) return "";
-  v = v.replace(/whats\s?app/gi, "WhatsApp").replace(/hairsalon/gi, "hair salon").replace(/\bR\s+(\d)/g, "R$1").replace(/\br(\d{2,})\b/g, "R$1");
+  v = v.replace(/whats\s?app/gi, "WhatsApp").replace(/\bR\s+(\d)/g, "R$1").replace(/\br(\d{2,})\b/g, "R$1");
   if (key === "urgency" && noUrgency(v)) return "None, and that is fine. We will not invent one.";
   return v;
 }
@@ -510,7 +422,7 @@ function ConfirmCard({
           return (
             <div key={q.key} className={`confirm-row${fixing === q.key ? " fixing" : ""}`}>
               <div>
-                <b>{CONFIRM_LABELS[q.key] || q.step}</b>
+                <b>{CONFIRM_LABELS[q.key] || q.key}</b>
                 <span className={value ? "" : "empty"}>{value || "Skipped"}</span>
               </div>
               <button className="btn small" onClick={() => onFix(q.key)} disabled={!!fixing}>
@@ -520,9 +432,7 @@ function ConfirmCard({
           );
         })}
       </div>
-      {missing.length > 0 && (
-        <p className="confirm-note">We still need: {missing.map((q) => CONFIRM_LABELS[q.key]).join(", ")}. Tap Add.</p>
-      )}
+      {missing.length > 0 && <p className="confirm-note">We still need: {missing.map((q) => CONFIRM_LABELS[q.key]).join(", ")}. Tap Add.</p>}
       <div className="choices">
         <button className="btn primary" onClick={onYes} disabled={!!fixing || missing.length > 0}>
           Yes, write my ads
@@ -537,48 +447,30 @@ function ConfirmCard({
 function Results({
   ads,
   issues,
-  creatives,
-  creativeLoading,
   launch,
   checklist,
   whatsappDigits,
-  onRetryCreative,
+  onRetry,
   onStartOver,
 }: {
   ads: Ad[];
   issues: Issue[];
-  creatives: Creative[];
-  creativeLoading: boolean;
   launch: LaunchLine[];
   checklist: CheckItem[];
   whatsappDigits: string;
-  onRetryCreative: () => void;
+  onRetry: () => void;
   onStartOver: () => void;
 }) {
   return (
     <div className="results">
       <h2>Your three ads</h2>
       <p className="results-intro">
-        Each ad is a different idea, so Meta can test them against each other. Copy each field into Ads Manager. The
-        counters show Meta&apos;s limits.
+        Three ads, three different openings, the same offer and button in each. That is how Meta finds out which opening
+        your customers respond to. Copy each field into Ads Manager. The counters show Meta&apos;s limits.
       </p>
       {ads.map((ad) => (
-        <AdCard
-          key={ad.id}
-          ad={ad}
-          issues={issues.filter((i) => i.adId === ad.id)}
-          creative={creatives.find((c) => c.id === ad.id)}
-          creativeLoading={creativeLoading}
-          whatsappDigits={whatsappDigits}
-        />
+        <AdCard key={ad.id} ad={ad} issues={issues.filter((i) => i.adId === ad.id)} whatsappDigits={whatsappDigits} />
       ))}
-      {!creativeLoading && creatives.length === 0 && (
-        <div className="choices">
-          <button className="btn ghost" onClick={onRetryCreative}>
-            Try again: plan the pictures
-          </button>
-        </div>
-      )}
 
       {launch.length > 0 && (
         <div className="result-block">
@@ -599,7 +491,7 @@ function Results({
       {checklist.length > 0 && (
         <div className="result-block">
           <div className="result-head">
-            <h3>Before you launch</h3>
+            <h3>Before you launch: the best-practice checklist</h3>
           </div>
           <ul className="checklist">
             {checklist.map((c) => (
@@ -618,6 +510,9 @@ function Results({
       <p className="fineprint">{AI_NUMBERS_CAUTION} Read every ad against your own facts before you post it.</p>
 
       <div className="choices">
+        <button className="btn ghost" onClick={onRetry}>
+          Write them again
+        </button>
         <button className="btn ghost" onClick={onStartOver}>
           Start over
         </button>
@@ -632,29 +527,29 @@ function Results({
 function adAsText(ad: Ad): string {
   return [
     `Ad ${ad.id}: ${CONCEPT_LABEL[ad.concept]}`,
-    `Primary text: ${ad.primary[0] || ""}`,
+    `Primary text: ${ad.primary}`,
+    `Reels primary text: ${ad.reels}`,
     `Headline: ${ad.headline}`,
     `Description: ${ad.description}`,
-    `Button: ${ad.cta}`,
-    `Text on the image: ${ad.onImage}`,
+    `CTA button: ${ad.cta}`,
+    `On-screen text: ${ad.onScreen}`,
+    `Offer badge: ${ad.badge}`,
+    "",
+    `Image prompt: ${ad.imagePrompt}`,
+    "",
+    ad.addAfterwards,
+    ad.cropAndCheck,
   ].join("\n");
 }
 
-function AdCard({
-  ad,
-  issues,
-  creative,
-  creativeLoading,
-  whatsappDigits,
-}: {
-  ad: Ad;
-  issues: Issue[];
-  creative?: Creative;
-  creativeLoading: boolean;
-  whatsappDigits: string;
-}) {
+function AdCard({ ad, issues, whatsappDigits }: { ad: Ad; issues: Issue[]; whatsappDigits: string }) {
   const shareHref = "https://wa.me/?text=" + encodeURIComponent(adAsText(ad));
-  const formatNote = ad.concept === "problem" ? "Suggested format: a 4:5 photo" : ad.concept === "proof" ? "Suggested format: a photo or a short clip of a real customer" : "Suggested format: a 15 second 9:16 video";
+  const opening =
+    ad.concept === "problem"
+      ? "Opens with your customer's problem, then the fix."
+      : ad.concept === "proof"
+        ? "Opens with your proof or result, then how."
+        : "Opens with a surprising fact or common mistake, then pays it off.";
   return (
     <div className="result-block ad-card">
       <div className="result-head">
@@ -667,54 +562,62 @@ function AdCard({
           </a>
         </div>
       </div>
-      <p className="ad-meta">{formatNote}</p>
+      <p className="ad-meta">{opening}</p>
       {issues.length > 0 && (
         <div className="ad-check">
           <b>Worth a look before you post:</b>
           {issues.map((i, n) => (
             <div key={n}>
-              {i.field} in Ad {ad.id}: {i.reason}.
+              {i.field}: {i.reason}.
             </div>
           ))}
         </div>
       )}
-      <Field label="Hook (first line and text on the image)" value={ad.hook} wordLimit={LIMITS.hookWords} />
-      {ad.primary.map((p, i) => (
-        <Field key={i} label={`Primary text ${i + 1}`} value={p} limit={LIMITS.primary} />
-      ))}
+      <Field label="Primary text" value={ad.primary} limit={LIMITS.primaryMax} keyLimit={LIMITS.primaryKey} />
+      <Field label="Reels primary text" value={ad.reels} limit={LIMITS.reels} />
       <Field label="Headline" value={ad.headline} limit={LIMITS.headline} />
       <Field label="Description" value={ad.description} limit={LIMITS.description} />
-      <Field label="Button" value={ad.cta} noCopy />
-      <Field label="Text on the image" value={ad.onImage} wordLimit={LIMITS.onImageMax} />
+      <Field label="CTA button" value={ad.cta} noCopy />
+      <Field label="On-screen text" value={ad.onScreen} wordLimit={LIMITS.onScreenMax} />
+      <Field label="Offer badge" value={ad.badge} />
 
       <div className="creative">
-        <b>Picture plan</b>
-        {creative ? (
-          <>
-            <Field label="What to photograph with your phone" value={creative.shotList} />
-            <Field label="Meta AI prompt, 4:5 feed image" value={creative.imagePrompt45} />
-            <Field label="Meta AI prompt, 9:16 Reels or Stories" value={creative.imagePrompt916} />
-            <p className="ad-meta">Add the text on the image afterwards in Canva or in Ads Manager. AI tools often misspell words, so keep text out of the generated picture.</p>
-            <Field label="15 second video script" value={creative.videoScript} />
-            <Field label="Your WhatsApp reply when they message" value={creative.whatsappGreeting} />
-            {whatsappDigits && (
-              <p className="ad-meta">The ad&apos;s button opens a chat with +{whatsappDigits}. Save the reply above as a quick reply in WhatsApp Business.</p>
-            )}
-          </>
-        ) : creativeLoading ? (
-          <p className="ad-meta">Planning the picture, the video and your WhatsApp reply...</p>
-        ) : (
-          <p className="ad-meta">Not planned yet.</p>
-        )}
+        <b>Your picture</b>
+        <Field label="Image prompt (copy and paste into Meta AI, ChatGPT, Gemini or Canva)" value={ad.imagePrompt} />
+        {ad.addAfterwards && <p className="ad-meta">{ad.addAfterwards}</p>}
+        {ad.cropAndCheck && <p className="ad-meta">{ad.cropAndCheck}</p>}
       </div>
+
+      {ad.whatsappGreeting && (
+        <div className="creative">
+          <b>When they message you</b>
+          <Field label="Your first WhatsApp reply (save it as a quick reply)" value={ad.whatsappGreeting} />
+          {whatsappDigits && <p className="ad-meta">The ad&apos;s button opens a chat with +{whatsappDigits}.</p>}
+        </div>
+      )}
     </div>
   );
 }
 
-function Field({ label, value, limit, wordLimit, noCopy }: { label: string; value: string; limit?: number; wordLimit?: number; noCopy?: boolean }) {
+function Field({
+  label,
+  value,
+  limit,
+  keyLimit,
+  wordLimit,
+  noCopy,
+}: {
+  label: string;
+  value: string;
+  limit?: number;
+  keyLimit?: number;
+  wordLimit?: number;
+  noCopy?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const words = value.trim() ? value.trim().split(/\s+/).length : 0;
   const over = (limit !== undefined && value.length > limit) || (wordLimit !== undefined && words > wordLimit);
+  const overKey = keyLimit !== undefined && value.length > keyLimit;
 
   async function copy() {
     try {
@@ -743,6 +646,7 @@ function Field({ label, value, limit, wordLimit, noCopy }: { label: string; valu
           {limit !== undefined && (
             <span className={`counter${over ? " over" : ""}`}>
               {value.length}/{limit}
+              {overKey ? " (first 125 shown on mobile)" : ""}
             </span>
           )}
           {wordLimit !== undefined && (
