@@ -27,7 +27,7 @@ export const maxDuration = 60;
 type ChatRequest = { stage: "write"; answers: Answers };
 
 const CONCEPTS: Concept[] = ["problem", "proof", "curiosity"];
-const ORDER = ["business", "customers", "problem", "proof", "myth", "offer", "objection", "contact", "urgency", "tone"];
+const ORDER = ["business", "customers", "problem", "proof", "myth", "offer", "objection", "contact", "urgency"];
 const MAX_RETRIES = 2;
 
 function fillAnswers(template: string, facts: Facts): string {

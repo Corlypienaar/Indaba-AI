@@ -36,12 +36,12 @@ Write 3 Facebook/Instagram ads for the business below. Each ad uses a different 
 7. Main worry or objection: [ANSWER 7]
 8. How to contact/buy and reply speed: [ANSWER 8]
 9. Real reason to act now: [ANSWER 9]
-10. Language, tone, words to use/avoid: [ANSWER 10]
+10. Language and tone: plain, warm South African English, the way a local business owner talks to a customer
 
 === THE 3 HOOKS ===
 Ad 1, Problem call-out: Open with the customer's frustration as a question, in their words ([Who] + [specific frustration] + "?"). Give the solution in the very next line. Don't be negative without a solution.
 Ad 2, Proof/result: Open with the result, the transformation or a happy customer (use answer 4). Then explain how. No exaggerated or fake-sounding results.
-Ad 3, Curiosity/bold claim: Open with a surprising fact, a common mistake or a direct question (use answer 5). Pay it off immediately. No clickbait.
+Ad 3, Curiosity/bold claim: Open with the surprising fact or the thing customers should know (use answer 5), or a direct question. Pay it off immediately. No clickbait.
 
 === EVERY AD MUST ANSWER THESE 6 QUESTIONS ===
 Who is it for? What is it? Why you? (one specific proof point) What's the deal? How do I get it? Why now? (only if answer 9 gives a real reason)
@@ -76,7 +76,7 @@ For each ad also write:
 === RULES ===
 - Use ONLY the facts provided. Don't invent numbers, reviews, results or deadlines. If a key fact is missing and the ad cannot be written honestly without it, write [NEEDED: ...] in that field; otherwise leave the point out.
 - No false urgency or vague claims ("loved by thousands", "best in SA"). If answer 9 is none, use no urgency words at all.
-- The language and tone follow answer 10. Plain words with a South African feel.
+- Plain words with a South African feel. Never say "cheapest".
 - The destination must match the ad's promise exactly. Never put a phone number or link in the copy; the button carries it.
 - Every primary text ends with the action in plain words (WhatsApp us, Call us, Book online, Shop online, Visit us), matching answer 8.
 - Ad 1's first sentence is a question ending in "?", shaped as [who] plus [their frustration]. For example: "Pretoria East homeowner, geyser burst and water everywhere?" Do not just put a question mark on a statement.
@@ -91,19 +91,18 @@ For each ad also write:
 One question per line. Format: `number. key | required or skip | question | example | choices`. Choices are separated by semicolons and turn the question into tap buttons. Leave choices empty for a typed answer.
 
 ```
-1. business | required | What is your business name, and what one product or service do you want to advertise? | Pipe Pros: same-day geyser replacement |
-2. customers | skip | Who are your customers, and what area do you serve? | Homeowners in Pretoria East and Centurion |
-3. problem | skip | What problem makes people contact you? Use the words customers actually say. | My geyser burst and there's water everywhere |
-4. proof | skip | Why should they choose you? Give proof they can check: your rating and number of reviews, years in business, jobs done, a guarantee, a real customer review or a before and after result. | 4.8 stars from 312 Google reviews, 60-minute response |
-5. myth | skip | What mistake do customers often make, or what myth do you keep correcting? | They replace the whole geyser when only the element is faulty |
-6. offer | required | What's the price, "from" price or special offer? | From R1,499 installed, or Free quote |
-7. objection | skip | What worry or question stops people from buying? | Is there a call-out fee? |
-8. contact | required | How should customers contact you or buy? | | WhatsApp;Call;Book online;Shop online;Visit us
-9. urgency | skip | Is there a real reason to act now? For example a deadline, limited slots or a season. Skip it if there isn't one. | Only 6 install slots left this month |
-10. tone | skip | What language and tone suit your customers, and are there words you must use or avoid? | Casual English with some Afrikaans; never say "cheapest" |
+1. business | required | What is your business name, and what one product or service do you want to advertise? | Service: "Pipe Pros: geyser replacement" · Product: "Kasi Candles: soy candles" |
+2. customers | skip | Who buys it, and where are they? Include the area you serve, or where you deliver. | Service: "Homeowners in Centurion" · Product: "Women 25 to 45, delivery across Gauteng" |
+3. problem | skip | What problem does it solve, or what does the customer want? Use the words customers actually say. | Service: "My geyser burst and there's water everywhere" · Product: "I need a gift that doesn't look last-minute" |
+4. proof | skip | Why should they choose you? Give proof they can check: your rating and number of reviews, years in business, customers served or orders delivered, a guarantee, a real customer review or a before and after result. | Service: "4.8 stars from 312 Google reviews" · Product: "2,300 orders delivered this year" |
+5. myth | skip | What do you wish more customers knew about your product or service? | Service: "A leaking geyser often just needs a R300 part" · Product: "Trimming the wick makes a candle last twice as long" |
+6. offer | required | What's the price, "from" price or special offer? Include delivery or call-out costs if they matter. | Service: "From R1,499 installed" · Product: "R189, free delivery over R500" |
+7. objection | skip | What worry or question stops people from buying? | Service: "Is there a call-out fee?" · Product: "How long does delivery take?" |
+8. contact | required | How should customers buy or contact you? | | WhatsApp;Call;Book online;Shop online;Visit us
+9. urgency | skip | Is there a real reason to buy now? For example a deadline, limited slots or stock, a season or an occasion. Skip it if there isn't one. | Service: "Only 20 slots in November" · Product: "Order by 15 Dec for Christmas delivery" |
 ```
 
-After the owner taps a contact method in question 8, the app asks: "Give the number or link, and say how fast you reply." (e.g. "072 123 4567, we reply within 10 minutes").
+After the owner taps a choice in question 8, the app asks for the number, link or address, and how fast they reply or deliver.
 
 ---
 

@@ -43,7 +43,7 @@ export function getWritingPrompt(): string {
   } catch {
     // fall through
   }
-  return "Write 3 Facebook/Instagram ads for the business below. Each ad uses a different hook (problem call-out, proof or result, curiosity or bold claim). Keep the offer, call-to-action button and destination identical across all 3 ads. Use only the facts given.\n\n=== BUSINESS DETAILS ===\n1. Business name and product/service: [ANSWER 1]\n2. Customers and area: [ANSWER 2]\n3. Customer's problem (in their words): [ANSWER 3]\n4. Proof (checkable): [ANSWER 4]\n5. Common mistake or myth: [ANSWER 5]\n6. Price or offer: [ANSWER 6]\n7. Main worry or objection: [ANSWER 7]\n8. How to contact/buy and reply speed: [ANSWER 8]\n9. Real reason to act now: [ANSWER 9]\n10. Language, tone, words to use/avoid: [ANSWER 10]";
+  return "Write 3 Facebook/Instagram ads for the business below. Each ad uses a different hook (problem call-out, proof or result, curiosity or bold claim). Keep the offer, call-to-action button and destination identical across all 3 ads. Use only the facts given.\n\n=== BUSINESS DETAILS ===\n1. Business name and product/service: [ANSWER 1]\n2. Customers and area: [ANSWER 2]\n3. Customer's problem (in their words): [ANSWER 3]\n4. Proof (checkable): [ANSWER 4]\n5. Common mistake or myth: [ANSWER 5]\n6. Price or offer: [ANSWER 6]\n7. Main worry or objection: [ANSWER 7]\n8. How to contact/buy and reply speed: [ANSWER 8]\n9. Real reason to act now: [ANSWER 9]\n10. Language and tone: plain, warm South African English";
 }
 
 export type Question = {
@@ -60,16 +60,15 @@ const FALLBACK_SYSTEM =
 // Hard-coded fallback, copied from content/prompts.md, used only if the file
 // can't be parsed (so the app never dies on a formatting typo).
 const FALLBACK_QUESTIONS: Question[] = [
-  { key: "business", required: true, text: "What is your business name, and what one product or service do you want to advertise?", hint: "Pipe Pros: same-day geyser replacement", choices: [] },
-  { key: "customers", required: false, text: "Who are your customers, and what area do you serve?", hint: "Homeowners in Pretoria East and Centurion", choices: [] },
-  { key: "problem", required: false, text: "What problem makes people contact you? Use the words customers actually say.", hint: "My geyser burst and there's water everywhere", choices: [] },
-  { key: "proof", required: false, text: "Why should they choose you? Give proof they can check: your rating and number of reviews, years in business, jobs done, a guarantee, a real customer review or a before and after result.", hint: "4.8 stars from 312 Google reviews, 60-minute response", choices: [] },
-  { key: "myth", required: false, text: "What mistake do customers often make, or what myth do you keep correcting?", hint: "They replace the whole geyser when only the element is faulty", choices: [] },
-  { key: "offer", required: true, text: "What's the price, \"from\" price or special offer?", hint: "From R1,499 installed, or Free quote", choices: [] },
-  { key: "objection", required: false, text: "What worry or question stops people from buying?", hint: "Is there a call-out fee?", choices: [] },
-  { key: "contact", required: true, text: "How should customers contact you or buy?", hint: "", choices: ["WhatsApp", "Call", "Book online", "Shop online", "Visit us"] },
-  { key: "urgency", required: false, text: "Is there a real reason to act now? For example a deadline, limited slots or a season. Skip it if there isn't one.", hint: "Only 6 install slots left this month", choices: [] },
-  { key: "tone", required: false, text: "What language and tone suit your customers, and are there words you must use or avoid?", hint: "Casual English with some Afrikaans; never say \"cheapest\"", choices: [] },
+  { key: "business", required: true, text: "What is your business name, and what one product or service do you want to advertise?", hint: "Service: \"Pipe Pros: geyser replacement\" · Product: \"Kasi Candles: soy candles\"", choices: [] },
+  { key: "customers", required: false, text: "Who buys it, and where are they? Include the area you serve, or where you deliver.", hint: "Service: \"Homeowners in Centurion\" · Product: \"Women 25 to 45, delivery across Gauteng\"", choices: [] },
+  { key: "problem", required: false, text: "What problem does it solve, or what does the customer want? Use the words customers actually say.", hint: "Service: \"My geyser burst and there's water everywhere\" · Product: \"I need a gift that doesn't look last-minute\"", choices: [] },
+  { key: "proof", required: false, text: "Why should they choose you? Give proof they can check: your rating and number of reviews, years in business, customers served or orders delivered, a guarantee, a real customer review or a before and after result.", hint: "Service: \"4.8 stars from 312 Google reviews\" · Product: \"2,300 orders delivered this year\"", choices: [] },
+  { key: "myth", required: false, text: "What do you wish more customers knew about your product or service?", hint: "Service: \"A leaking geyser often just needs a R300 part\" · Product: \"Trimming the wick makes a candle last twice as long\"", choices: [] },
+  { key: "offer", required: true, text: "What's the price, \"from\" price or special offer? Include delivery or call-out costs if they matter.", hint: "Service: \"From R1,499 installed\" · Product: \"R189, free delivery over R500\"", choices: [] },
+  { key: "objection", required: false, text: "What worry or question stops people from buying?", hint: "Service: \"Is there a call-out fee?\" · Product: \"How long does delivery take?\"", choices: [] },
+  { key: "contact", required: true, text: "How should customers buy or contact you?", hint: "", choices: ["WhatsApp", "Call", "Book online", "Shop online", "Visit us"] },
+  { key: "urgency", required: false, text: "Is there a real reason to buy now? For example a deadline, limited slots or stock, a season or an occasion. Skip it if there isn't one.", hint: "Service: \"Only 20 slots in November\" · Product: \"Order by 15 Dec for Christmas delivery\"", choices: [] },
 ];
 
 export function getQuestions(): Question[] {

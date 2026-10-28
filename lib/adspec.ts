@@ -203,7 +203,7 @@ export function checkAd(ad: Ad, facts: Facts, others: Ad[]): Issue[] {
   if (vague && !ownerText.includes(vague[0].toLowerCase())) push("claims", `"${vague[0]}" is a vague claim the owner did not back up`);
 
   // Pasted answers of 6+ words appearing word for word in the primary text (the problem and myth may be used as said)
-  for (const key of ["business", "customers", "proof", "offer", "objection", "contact", "tone"]) {
+  for (const key of ["business", "customers", "proof", "offer", "objection", "contact"]) {
     const ans = (facts.answers[key] || "").trim().toLowerCase().replace(/[.!?]+$/, "");
     if (ans.split(/\s+/).length >= 6 && ad.primary.toLowerCase().includes(ans)) {
       push("primary text", `pastes the owner's "${key}" answer word for word, rewrite it as ad copy`);

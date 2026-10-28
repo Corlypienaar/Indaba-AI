@@ -65,7 +65,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
     setMessages([
       {
         role: "app",
-        text: "Lekker, let's do this. Ten quick questions. Answer in your own words, and use real numbers and your customers' own words where you can. Tap \"Show me an example\" under any question if you are not sure.",
+        text: "Lekker, let's do this. Nine quick questions. Answer in your own words, and use real numbers and your customers' own words where you can. Tap \"Show me an example\" under any question if you are not sure.",
       },
     ]);
     askQuestion(0);
@@ -106,7 +106,9 @@ export default function Chat({ questions }: { questions: Question[] }) {
           ? "Give the number, and say how fast you reply. For example: \"072 123 4567, we reply within 10 minutes\"."
           : /visit/i.test(choice)
             ? "Give the address and your hours. For example: \"12 Church Street, Centurion, Mon to Sat 8 to 5\"."
-            : "Give the link, and say how fast you confirm. For example: \"mysite.co.za/book, confirmed within the hour\"."
+            : /shop/i.test(choice)
+              ? "Give the shop link, and say how fast you deliver. For example: \"kasicandles.co.za, delivered in 2 to 3 days\"."
+              : "Give the booking link, and say how fast you confirm. For example: \"mysite.co.za/book, confirmed within the hour\"."
       );
       setStage("contact_detail");
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -243,7 +245,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
           <p>
             The best Facebook and Instagram ads grab attention in 3 seconds and tell people who it&apos;s for, what it
             is, why you, what it costs, how to get it and why now. We&apos;ll write three ads for you, each opening a
-            different way: your customer&apos;s problem, your proof, and a surprising fact. Answer 10 quick questions
+            different way: your customer&apos;s problem, your proof, and a surprising fact. Answer 9 quick questions
             using real numbers and your customers&apos; own words. The more specific you are, the better your ads will
             be.
           </p>
@@ -353,7 +355,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
                 ref={inputRef}
                 value={input}
                 rows={1}
-                placeholder={currentQ && stage === "interview" && currentQ.hint ? `e.g. ${currentQ.hint}` : "Type your answer..."}
+                placeholder={currentQ && stage === "interview" && currentQ.hint ? `e.g. ${currentQ.hint.replace(/^Service: /, "").split(" · ")[0]}` : "Type your answer..."}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -381,12 +383,11 @@ const CONFIRM_LABELS: Record<string, string> = {
   customers: "Customers and area",
   problem: "Their problem, in their words",
   proof: "Proof people can check",
-  myth: "Mistake or myth",
+  myth: "What you wish customers knew",
   offer: "Price or offer",
   objection: "Worry that stops people",
   contact: "How to contact or buy",
   urgency: "Reason to act now",
-  tone: "Language and tone",
 };
 
 function tidyForCard(key: string, value: string): string {
