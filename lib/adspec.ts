@@ -239,7 +239,9 @@ export function checkAd(ad: Ad, facts: Facts, others: Ad[]): Issue[] {
 // When the owner gave a real reason to act now, at least one ad must carry it.
 export function urgencyMissing(facts: Facts, ads: Ad[]): boolean {
   if (!facts.hasUrgency) return false;
-  const want = Array.from(words(facts.answers.urgency || ""));
+  // Only the words that belong to the reason itself, not ones that appear in other answers (like "delivery").
+  const elsewhere = words(Object.keys(facts.answers).filter((k) => k !== "urgency").map((k) => facts.answers[k] || "").join(" "));
+  const want = Array.from(words(facts.answers.urgency || "")).filter((w) => !elsewhere.has(w) && !/^(only|this|that|with|from|have|left|real|just|when|your|more|than)$/.test(w));
   if (want.length === 0) return false;
   const all = words(ads.map((a) => [a.primary, a.headline, a.description, a.onScreen].join(" ")).join(" "));
   const hits = want.filter((w) => all.has(w)).length;
