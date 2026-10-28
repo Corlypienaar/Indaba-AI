@@ -79,7 +79,7 @@ For each ad also write:
 - The language and tone follow answer 10. Plain words with a South African feel.
 - The destination must match the ad's promise exactly. Never put a phone number or link in the copy; the button carries it.
 - Every primary text ends with the action in plain words (WhatsApp us, Call us, Book online, Shop online, Visit us), matching answer 8.
-- Ad 1's first sentence is a question ending in "?".
+- Ad 1's first sentence is a question ending in "?", shaped as [who] plus [their frustration]. For example: "Pretoria East homeowner, geyser burst and water everywhere?" Do not just put a question mark on a statement.
 - If answer 9 gives a real reason to act now, use it in at least one ad, in the owner's words. If it is none, use no urgency words at all.
 - Three different ideas: different first line, different headline, different argument.
 ```

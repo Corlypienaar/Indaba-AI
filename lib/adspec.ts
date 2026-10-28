@@ -98,7 +98,7 @@ export function tidy(text: string): string {
 export function cleanAd(ad: Ad): Ad {
   return {
     ...ad,
-    primary: tidy(ad.primary),
+    primary: tidy(ad.primary).replace(/([A-Za-z0-9)])$/, "$1."),
     reels: tidy(ad.reels),
     headline: tidy(ad.headline).replace(/!+$/, ""),
     description: tidy(ad.description),

@@ -52,7 +52,7 @@ function schema(facts: Facts): string {
         headline: "max 27 characters",
         description: "max 27 characters",
         cta: facts.cta,
-        onScreen: "3 to 7 words",
+        onScreen: "4 to 6 words",
         badge: "offer badge, e.g. From R1,499",
         imagePrompt: "one complete standalone paragraph",
         addAfterwards: "Add afterwards in Canva or Meta Ads Manager: ...",
