@@ -670,9 +670,10 @@ function AdCard({
       <p className="ad-meta">{formatNote}</p>
       {issues.length > 0 && (
         <div className="ad-check">
+          <b>Worth a look before you post:</b>
           {issues.map((i, n) => (
             <div key={n}>
-              Check: {i.field} in Ad {ad.id}. {i.reason}.
+              {i.field} in Ad {ad.id}: {i.reason}.
             </div>
           ))}
         </div>

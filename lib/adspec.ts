@@ -146,18 +146,19 @@ export function checkAd(ad: Ad, facts: Facts, others: Ad[]): Issue[] {
   if (ad.primary.length < 3) push("primary", "needs 3 variants");
   ad.primary.forEach((p, i) => {
     if (p.length > LIMITS.primary) push(`primary ${i + 1}`, `over ${LIMITS.primary} characters (${p.length})`);
-    else if (p.length < 80) push(`primary ${i + 1}`, "too short, write 2 to 4 full sentences (90 to 125 characters)");
+    else if (p.length < 70) push(`primary ${i + 1}`, "too short, write 2 to 4 full sentences (90 to 125 characters)");
     else if (!/[.?!]\s+\S/.test(p)) push(`primary ${i + 1}`, "one long phrase, write it as 2 to 4 full sentences");
     else if ((p.match(/,/g) || []).length >= 4 && (p.match(/[.?!]/g) || []).length < 2) push(`primary ${i + 1}`, "a comma list of facts, write sentences instead");
   });
   if (ad.hook && wordCount(ad.hook) < 3) push("hook", "too short to stop a scroll, write a full line (a question, the quote or the myth)");
   if (ad.headline && ad.headline.length < 10) push("headline", "too short, use the offer or answer an objection");
 
-  // Pasted answers: any owner answer of 5+ words appearing word for word (the quote is allowed).
-  for (const key of Object.keys(facts.answers)) {
-    if (key === "quote") continue;
+  // Pasted answers: an owner answer of 5+ words appearing word for word in the ad text.
+  // The quote, the problem and the myth are meant to be used as said, so they are allowed.
+  const bodyText = [...ad.primary, ad.headline, ad.description].join(" ").toLowerCase();
+  for (const key of ["business", "offer", "customer", "proof", "whyyou", "contact"]) {
     const ans = (facts.answers[key] || "").trim().toLowerCase().replace(/[.!?]+$/, "");
-    if (ans.split(/\s+/).length >= 5 && allText.toLowerCase().includes(ans)) {
+    if (ans.split(/\s+/).length >= 5 && bodyText.includes(ans)) {
       push("copy", `pastes the owner's "${key}" answer word for word, rewrite it as ad copy`);
       break;
     }
