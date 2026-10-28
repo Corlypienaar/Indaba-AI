@@ -10,60 +10,83 @@ export function getContentRaw(): string {
   return fs.readFileSync(CONTENT_PATH, "utf8");
 }
 
-export type Question = { text: string; optional: boolean };
+function section(raw: string, heading: string): string {
+  const start = raw.indexOf("## " + heading);
+  if (start === -1) return "";
+  const rest = raw.slice(start);
+  const next = rest.indexOf("\n## ", 1);
+  return next === -1 ? rest : rest.slice(0, next);
+}
 
-// Hard-coded fallback, copied word for word from content/prompts.md, used only
-// if the file can't be parsed (so the app never dies on a formatting typo).
+function fenced(text: string): string {
+  const m = text.match(/```([\s\S]*?)```/);
+  return m ? m[1].trim() : text.trim();
+}
+
+// The system prompt is the fenced block under SYSTEM PROMPT, nothing else.
+export function getSystemPrompt(): string {
+  try {
+    const s = section(getContentRaw(), "SYSTEM PROMPT");
+    const text = fenced(s);
+    if (text.length > 200) return text;
+  } catch {
+    // fall through
+  }
+  return FALLBACK_SYSTEM;
+}
+
+export type Question = {
+  key: string;
+  required: boolean;
+  step: string;
+  text: string;
+  hint: string;
+  choices: string[];
+};
+
+const FALLBACK_SYSTEM =
+  "You are IndabaAI, a friendly South African marketing helper for small business owners. Use plain, warm English. Use only facts the owner gave. Never invent anything. Write three different Meta ads, each with a different hook.";
+
+// Hard-coded fallback, copied from content/prompts.md, used only if the file
+// can't be parsed (so the app never dies on a formatting typo).
 const FALLBACK_QUESTIONS: Question[] = [
-  { text: "What's your business, in one sentence? (what you do, who it's for, and where you are)", optional: false },
-  { text: "How long have you been running it?", optional: false },
-  { text: "Where are you with marketing today: never posted, boosted a post once or twice, or already in Ads Manager?", optional: false },
-  { text: "What do people usually say when they're happy with what you did for them?", optional: false },
-  { text: "What's the one thing stopping people from buying right now (price, trust, not knowing you exist)?", optional: false },
-  { text: "What do you charge, or want to charge, for your main offer? (If you already told us, just confirm it.)", optional: false },
-  { text: "Roughly what does one job or sale cost you: products or stock, fuel or travel, helpers, card fees? A rough total in rand is fine.", optional: false },
-  { text: "How do you want customers to respond to the ad: send a WhatsApp, call, visit, book, or buy online? And any rules they must know, like how much notice you need, or collection only?", optional: false },
-  { text: "Is there a reason someone should act this week rather than \"someday\"? (a deadline, limited slots, a seasonal reason; if truly none, say so, don't invent one)", optional: false },
-  { text: "Anything else about the business you think matters?", optional: true },
+  { key: "business", required: true, step: "Your business", text: "What's your business called, and what do you sell?", hint: "Thandi's Hair Studio: braids, wigs and natural hair", choices: [] },
+  { key: "area", required: false, step: "Your business", text: "Which area are most of your customers in?", hint: "Protea Glen and Naledi, Soweto", choices: [] },
+  { key: "offer", required: true, step: "Your business", text: "Which ONE service or product do you want to advertise first? What does it cost, and what's included?", hint: "Knotless braids, mid-back, R450, hair included, about 5 hours", choices: [] },
+  { key: "customer", required: false, step: "Your customer", text: "Who is your best customer, and what's going on when they need you?", hint: "Working moms who need neat hair that lasts 6 weeks", choices: [] },
+  { key: "problem", required: false, step: "Your customer", text: "What problem do they come to you with? Use their words.", hint: "My last braids pulled my edges out", choices: [] },
+  { key: "quote", required: false, step: "Your customer", text: "What has a happy customer actually said or sent you? Their exact words.", hint: "Lightest braids I've ever had, no headache", choices: [] },
+  { key: "proof", required: false, step: "Why you", text: "What proof can you show? Number of clients, years open, Google or Facebook rating, repeat customers.", hint: "2 years, about 300 clients, 4.9 stars on Google (40 reviews)", choices: [] },
+  { key: "whyyou", required: false, step: "Why you", text: "Why do people choose you over other places nearby?", hint: "No tension on the edges, done in 5 hours, open Sundays", choices: [] },
+  { key: "myth", required: false, step: "Why you", text: "Is there a common mistake or myth your customers believe?", hint: "That tight braids last longer. They just cause breakage.", choices: [] },
+  { key: "contact", required: true, step: "Getting the sale", text: "What WhatsApp number should people message, and any rules? (deposit, notice, hours)", hint: "WhatsApp 07X XXX XXXX, R100 deposit, 2 days' notice", choices: [] },
+  { key: "urgency", required: false, step: "Getting the sale", text: "Is there a real reason to book now?", hint: "", choices: ["Limited slots this week", "A season or holiday is coming", "An intro price for a short time", "No, nothing special right now"] },
+  { key: "cost", required: false, step: "Getting the sale", text: "Roughly what does one job cost you? Products, petrol, helpers, card fees. A rough total is fine.", hint: "R220", choices: [] },
 ];
 
 export function getQuestions(): Question[] {
   try {
-    const raw = getContentRaw();
-    const start = raw.indexOf("## INTERVIEW SCRIPT");
-    if (start === -1) return FALLBACK_QUESTIONS;
-    const rest = raw.slice(start);
-    const nextSection = rest.indexOf("\n## ", 1);
-    const section = nextSection === -1 ? rest : rest.slice(0, nextSection);
-
-    // The questions sit inside a ``` fenced block.
-    const fenceMatch = section.match(/```([\s\S]*?)```/);
-    const body = fenceMatch ? fenceMatch[1] : section;
-
+    const body = fenced(section(getContentRaw(), "INTERVIEW SCRIPT"));
     const questions: Question[] = [];
-    let current: string | null = null;
     for (const line of body.split("\n")) {
-      const numbered = line.match(/^\s*\d+\.\s+(.*)$/);
-      if (numbered) {
-        if (current !== null) questions.push(makeQuestion(current));
-        current = numbered[1].trim();
-      } else if (current !== null && line.trim() !== "") {
-        current += " " + line.trim();
-      }
+      const m = line.match(/^\s*\d+\.\s+(.*)$/);
+      if (!m) continue;
+      const parts = m[1].split("|").map((p) => p.trim());
+      if (parts.length < 4) continue;
+      const [key, req, step, text, hint = "", choices = ""] = parts;
+      questions.push({
+        key,
+        required: /^required$/i.test(req),
+        step,
+        text,
+        hint,
+        choices: choices ? choices.split(";").map((c) => c.trim()).filter(Boolean) : [],
+      });
     }
-    if (current !== null) questions.push(makeQuestion(current));
-
-    return questions.length >= 5 ? questions : FALLBACK_QUESTIONS;
+    return questions.length >= 8 ? questions : FALLBACK_QUESTIONS;
   } catch {
     return FALLBACK_QUESTIONS;
   }
-}
-
-function makeQuestion(text: string): Question {
-  const optional = /^\(optional/i.test(text);
-  // Strip the "(optional, only if answers are thin)" note from what the user sees.
-  const cleaned = optional ? text.replace(/^\(optional[^)]*\)\s*/i, "") : text;
-  return { text: cleaned.trim(), optional };
 }
 
 export function getModelName(): string {

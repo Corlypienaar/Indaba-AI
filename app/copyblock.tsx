@@ -43,8 +43,8 @@ export default function CopyBlock({
       <div className="result-head">
         <h3>{title}</h3>
         <div className="result-actions">
-          <a className="btn small" href={waHref} target="_blank" rel="noopener noreferrer">
-            Send to my WhatsApp
+          <a className="btn small" href={waHref} target="_blank" rel="noopener noreferrer" title="Choose yourself to save it">
+            Share on WhatsApp
           </a>
           <button className="btn small" onClick={copy}>
             {copied ? "Copied ✓" : "Copy"}

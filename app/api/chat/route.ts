@@ -1,169 +1,218 @@
 import { NextResponse } from "next/server";
-import { getContentRaw, getModelName, callOpenRouter } from "@/lib/content";
+import { getSystemPrompt, getModelName, callOpenRouter } from "@/lib/content";
+import {
+  Ad,
+  Answers,
+  Concept,
+  Creative,
+  Facts,
+  Issue,
+  buildFacts,
+  buildChecklist,
+  buildLaunchCard,
+  checkAd,
+  extractJson,
+  toAd,
+  toCreative,
+} from "@/lib/adspec";
 
-// This route is the only place the app talks to the AI.
-// It reads the whole content file (system prompt, templates, rules) and sends
-// it to Llama via OpenRouter, together with the user's interview answers and
-// a short instruction for the current stage of the flow.
+// This route is the only place the ads tool talks to the AI.
+// Three stages:
+//   write     -> three ads as JSON in Meta's fields, checked in code, failing ads regenerated
+//   creative  -> shot list, image prompts, video script and WhatsApp greeting per ad
+// Everything the owner sees is built from the JSON. Model commentary never reaches the screen.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type Answer = { question: string; answer: string };
+export const maxDuration = 60;
 
 type ChatRequest = {
-  stage: "profile" | "profile_fix" | "offer" | "offer_adjust" | "ads" | "ads_fix" | "image";
-  ads?: string;
-  problems?: string;
-  answers: Answer[];
-  profile?: string;
-  offer?: string;
-  note?: string;
+  stage: "write" | "creative";
+  answers: Answers;
+  ads?: Ad[];
 };
 
-function transcript(answers: Answer[]): string {
-  return answers
-    .map((a, i) => `Q${i + 1}: ${a.question}\nA${i + 1}: ${a.answer}`)
-    .join("\n\n");
+const CONCEPTS: Concept[] = ["problem", "proof", "curiosity"];
+const MAX_RETRIES = 2;
+
+function factsText(facts: Facts): string {
+  const a = facts.answers;
+  const line = (label: string, key: string) => (a[key] && a[key].trim() ? `${label} (source "${key}"): ${a[key].trim()}` : `${label} (source "${key}"): not given`);
+  return [
+    line("Business name and what they sell", "business"),
+    line("Area where most customers are", "area"),
+    line("The one offer, price and what is included", "offer"),
+    line("Best customer and their situation", "customer"),
+    line("Problem customers come with, in their words", "problem"),
+    line("What a happy customer actually said", "quote"),
+    line("Proof", "proof"),
+    line("Why people choose them over others nearby", "whyyou"),
+    line("Myth or common mistake customers believe", "myth"),
+    line("Contact and rules", "contact"),
+    facts.hasUrgency ? `Real reason to act now (source "urgency"): ${facts.urgencyText}` : `Reason to act now: NONE. Use no urgency words at all.`,
+    facts.price !== null ? `Price to use: R${Math.round(facts.price)}` : "Price: not given, do not invent one",
+  ].join("\n");
 }
 
-// The conditions every ad must carry, pulled straight from the owner's answers.
-function mustInclude(answers: Answer[]): string[] {
-  const find = (re: RegExp) => answers.find((a) => re.test(a.question))?.answer.trim() || "";
-  const rules = find(/How do you want customers to respond/i);
-  const urgency = find(/act this week/i);
-  const business = find(/your business, in one sentence/i);
-  const list: string[] = [];
-  if (rules) list.push("How to respond and the rules the owner gave: " + rules);
-  if (urgency && !/^\s*(none|no|nothing|not really|n\/a|no real reason)\b/i.test(urgency)) list.push("The real reason to act now: " + urgency);
-  if (business) list.push("What is offered, where, and what is and is not included, exactly as the owner said: " + business);
-  return list;
+function adSchema(): string {
+  return JSON.stringify({
+    ads: [
+      {
+        id: 1,
+        concept: "problem",
+        hook: "max 10 words, names who it is for or their problem",
+        primary: ["variant 1, max 125 characters", "variant 2, max 125 characters", "variant 3, max 125 characters"],
+        headline: "max 27 characters",
+        description: "max 27 characters",
+        cta: "Send WhatsApp message",
+        onImage: "3 to 7 words",
+        claims: [{ claim: "the fact as used in the ad", source: "the source key it came from" }],
+      },
+    ],
+  });
 }
 
-const ACTION_HINT = "send a WhatsApp, call, visit, book or buy, whichever the owner asked for";
+function conceptBrief(concept: Concept, facts: Facts): string {
+  const a = facts.answers;
+  switch (concept) {
+    case "problem":
+      return (
+        "CONCEPT 1, problem call-out. Open with the customer's problem as a short question" +
+        (a.problem ? `, built from their words: "${a.problem.trim()}"` : a.customer ? `, built from the best customer's situation: "${a.customer.trim()}"` : "") +
+        ". Then the fix, the offer with price, and WhatsApp to book. Message: fix the problem."
+      );
+    case "proof":
+      return (
+        "CONCEPT 2, proof and result. Open with " +
+        (a.quote ? `the customer's exact quote in quotation marks: "${a.quote.trim()}"` : a.proof ? `the checkable proof: ${a.proof.trim()}` : "the result customers get") +
+        (a.proof && a.quote ? `. Then add the proof: ${a.proof.trim()}` : "") +
+        ". Then the offer with price and WhatsApp to book. Message: trust."
+      );
+    case "curiosity":
+      return (
+        "CONCEPT 3, curiosity or bold claim. Open with " +
+        (a.myth ? `the myth, stated and corrected in one line: "${a.myth.trim()}"` : a.whyyou ? `a bold true claim or direct question built from why people choose them: "${a.whyyou.trim()}"` : "a direct question the customer asks themselves") +
+        ". Then the offer with price and WhatsApp to book. Message: expertise. Do not use the customer quote here."
+      );
+  }
+}
 
-// Ask the model to compare the ads against the owner's answers. Returns "" when clean.
-async function factCheck(apiKey: string, answersText: string, ads: string, must: string[]): Promise<string> {
-  try {
+function writePrompt(facts: Facts, concepts: Concept[], fixing?: { ad: Ad; issues: Issue[] }): string {
+  const base =
+    "FACTS the owner gave (use only these, nothing else):\n" +
+    factsText(facts) +
+    "\n\nTASK: write Meta ads (Click-to-WhatsApp) for this business.\n" +
+    concepts.map((c) => conceptBrief(c, facts)).join("\n") +
+    "\n\nRULES\n" +
+    "- Rewrite the owner's answers as customer-facing copy in plain South African English. Never paste them as they are, except the customer quote in quotation marks (proof concept only).\n" +
+    "- Name the customer or the area in the hook or the first line of every ad.\n" +
+    "- Each primary text: hook, then benefit, proof, the price and the action. The three variants of one ad must each make a different argument: variant 1 the price and what is included, variant 2 speed or convenience, variant 3 proof. Every variant must contain the price and the word WhatsApp. Max 125 characters each. Count carefully.\n" +
+    "- Headline max 27 characters: the offer, or an answer to a common objection. Description max 27 characters: a reassurance such as what is included.\n" +
+    "- onImage: 3 to 7 words, the hook or the offer.\n" +
+    "- cta is always \"Send WhatsApp message\".\n" +
+    "- Never write a phone number in the copy. The button handles it.\n" +
+    "- Every number in the copy must come from the facts. No invented years, counts, ratings, discounts, hours, areas or deadlines.\n" +
+    (facts.hasUrgency ? "- The reason to act now is real, so you may use it, plainly.\n" : "- There is no reason to act now, so use no urgency words at all (no limited, hurry, today only, last chance, only X slots).\n") +
+    "- The three ads must be three different ideas: different hook, different first line, different headline, different argument. Share as few words as possible between them.\n" +
+    "- No dashes as breaks. No exclamation marks in headlines. No hype words.\n" +
+    "- claims: list every factual claim you used and which source key it came from.\n" +
+    "\nReturn JSON only, no prose before or after, exactly in this shape:\n" +
+    adSchema();
+
+  if (!fixing) return base;
+  return (
+    base +
+    "\n\nYou are rewriting only ad " +
+    fixing.ad.id +
+    " (" +
+    fixing.ad.concept +
+    "). Your previous version was:\n" +
+    JSON.stringify(fixing.ad) +
+    "\n\nIt failed these checks, fix every one of them:\n" +
+    fixing.issues.map((i) => `- ${i.field}: ${i.reason}`).join("\n") +
+    "\n\nReturn JSON with a single ad in the \"ads\" list, same id and concept."
+  );
+}
+
+function creativePrompt(facts: Facts, ads: Ad[]): string {
+  const a = facts.answers;
+  return (
+    "FACTS the owner gave:\n" +
+    factsText(facts) +
+    "\n\nThe three finished ads:\n" +
+    ads.map((ad) => `Ad ${ad.id} (${ad.concept}): hook "${ad.hook}". Text: ${ad.primary[0]} Headline: ${ad.headline}. On image: ${ad.onImage}`).join("\n") +
+    "\n\nTASK: for each ad, plan the picture and the chat so the owner can make it on a phone.\n" +
+    "- shotList: 2 or 3 short lines telling the owner what to photograph with their phone for THIS ad: subject (ad 1: the owner or a worker doing the work; ad 2: a real happy customer with the finished result, with their permission; ad 3: the owner talking to camera), setting, framing, light. Local, real, one focal point. Each ad a different subject.\n" +
+    "- imagePrompt45: a prompt to paste into Meta AI for a 4:5 (1080 x 1350) feed image. Describe a real-looking local South African person and the actual work or result for this business" +
+    (a.area ? ` in ${a.area.trim()}` : "") +
+    ", natural light, phone-photo feel, one focal point, no text in the image, and keep the top 14 percent and bottom 35 percent of the frame simple so text can be added later. A different subject per ad.\n" +
+    "- imagePrompt916: the same scene for a 9:16 (1080 x 1920) Reels or Stories image, with the subject in the middle and the top and bottom clear.\n" +
+    "- videoScript: a 15 second vertical video the owner can film on a phone. Four lines: 0 to 3 seconds the hook as on-screen text, 3 to 7 seconds the problem or promise, 7 to 12 seconds show the work or result, 12 to 15 seconds the offer with price and \"WhatsApp us\". Note that captions must be burned in.\n" +
+    "- whatsappGreeting: 1 or 2 lines the owner sends when someone messages from this ad. It repeats the ad's offer and price word for word, then asks one question to move the booking along" +
+    (a.contact ? `, staying inside these rules: ${a.contact.trim()}` : "") +
+    ".\n" +
+    "Use only the facts. No invented details. No dashes as breaks.\n\nReturn JSON only, exactly in this shape:\n" +
+    JSON.stringify({
+      creatives: [
+        { id: 1, shotList: "...", imagePrompt45: "...", imagePrompt916: "...", videoScript: "...", whatsappGreeting: "..." },
+      ],
+    })
+  );
+}
+
+async function askJson(apiKey: string, system: string, user: string, maxTokens: number): Promise<unknown> {
+  let lastErr = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
     const res = await callOpenRouter(apiKey, {
-        model: getModelName(),
-        messages: [
-          { role: "system", content: "You are a strict fact checker for small business ads. You only list contradictions and inventions. You never rewrite." },
-          { role: "user", content: "Here is what the business owner said about their business:\n\n" + answersText + "\n\nHere are three ads written from it:\n\n" + ads + "\n\nDo two checks.\n1. INVENTED: list every claim in the ads that contradicts what the owner said, or that the owner never said. Be strict: this includes soft inventions such as a notice period or scheduling rule the owner did not give (\"a couple of days' notice\", \"a heads up so we can schedule\"), promises or guarantees (\"we ensure a safe experience\", \"reliable\", \"professional\"), exaggerated customer praise (\"customers rave\"), delivery when they said collection only, emergency or same-day service, discounts, areas, prices or hours they did not give. Quote the ad words.\n2. MISSING: these must appear in every ad, in the owner's own terms:\n" + must.map((x) => "- " + x).join("\\n") + "\nAlso the conditions a customer must know before they respond: service area, what is and is not included, what the customer must provide, notice or booking rule, collection or delivery, hours, price. For each ad (AD 1, AD 2, AD 3), list anything from this list that ad leaves out, and note if an ad does not end with the action the owner asked for.\nOne problem per line. If there are no problems at all, reply with exactly: NONE" },
-        ],
-        temperature: 0,
-        max_tokens: 400,
+      model: getModelName(),
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user + (attempt ? "\n\nYour last reply was not valid JSON. Reply with the JSON object only." : "") },
+      ],
+      temperature: attempt ? 0.5 : 0.7,
+      max_tokens: maxTokens,
     });
-    if (!res.ok) return "";
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      console.error("OpenRouter error", res.status, detail);
+      throw new Error(res.status === 429 ? "rate" : "service");
+    }
     const data = await res.json();
-    const text: string = (data?.choices?.[0]?.message?.content || "").trim();
-    if (!text || /^none\b/i.test(text)) return "";
-    return text;
+    const text: string = data?.choices?.[0]?.message?.content || "";
+    try {
+      return extractJson(text);
+    } catch (e) {
+      lastErr = String(e);
+    }
+  }
+  throw new Error("json:" + lastErr);
+}
+
+// Second opinion from the model: anything in the ads the owner never said.
+// Only invented claims count. Everything else was already checked in code.
+async function reviewInvented(apiKey: string, system: string, facts: Facts, ads: Ad[]): Promise<Issue[]> {
+  try {
+    const user =
+      "FACTS the owner gave:\n" +
+      factsText(facts) +
+      "\n\nADS:\n" +
+      ads.map((ad) => `AD ${ad.id}: ${ad.hook} | ${ad.primary.join(" | ")} | ${ad.headline} | ${ad.description} | ${ad.onImage}`).join("\n") +
+      "\n\nTASK: you are a strict fact checker. List every claim in the ads that the owner did not say or that contradicts the facts: invented numbers, years, ratings, areas, hours, delivery, discounts, guarantees, praise, urgency or deadlines. Rewording the owner's facts is fine. Only invention counts.\n" +
+      'Return JSON only: {"invented":[{"ad":1,"text":"the invented words","why":"short reason"}]}. If nothing is invented return {"invented":[]}.';
+    const out = (await askJson(apiKey, system, user, 500)) as { invented?: { ad: number; text: string; why: string }[] };
+    return (out.invented || [])
+      .filter((x) => x && x.ad && x.text)
+      .map((x) => ({ adId: Number(x.ad), field: "invented", reason: `"${x.text}" (${x.why || "not in the facts"})` }));
   } catch {
-    return "";
+    return [];
   }
 }
 
-// Pull the single offer sentence and the honesty check out of the model's reply,
-// whether the sentence sits on the OFFER: line or the line after it.
-function parseOffer(raw: string): { offer: string; check: string } {
-  const text = raw.replace(/\*\*/g, "").trim();
-  const m = text.match(/OFFER:\s*\n?\s*([\s\S]*?)\s*(?:\n+\s*(?:CHECK|Inline honesty check|Honesty check):?\s*([\s\S]*))?$/i);
-  let offer = "";
-  let check = "";
-  if (m) {
-    offer = m[1].trim().replace(/\s*\n+\s*/g, " ");
-    check = (m[2] || "").trim();
-  } else {
-    const lines = text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l && !/template|^here'?s|^here is|^the proposed|^proposed offer/i.test(l));
-    const first = lines.find((l) => !/^(check|inline honesty|honesty)/i.test(l)) || "";
-    offer = first;
-    check = lines.filter((l) => l !== first).join(" ").replace(/^(inline honesty check|honesty check|check):?\s*/i, "");
-  }
-  // Commentary is not an offer.
-  if (/\bthe user\b|\bthe price matches\b|\bseems real\b|\bholds up\b/i.test(offer) || offer.length < 15) offer = "";
-  return { offer: offer.replace(/^[*_"]+|[*_"]+$/g, ""), check };
-}
-
-function stageInstruction(body: ChatRequest): string {
-  switch (body.stage) {
-    case "profile":
-      return (
-        "Task: Using the PROFILE PLAYBACK TEMPLATE in your instructions, write the profile " +
-        "playback for this business and ask if you got it right. Output only the playback text, nothing else."
-      );
-    case "profile_fix":
-      return (
-        "You previously wrote this profile playback:\n" +
-        (body.profile || "") +
-        "\n\nThe user says this needs fixing: " +
-        (body.note || "") +
-        "\n\nTask: Rewrite the profile playback with that correction applied, using the PROFILE PLAYBACK TEMPLATE, and ask again if it's right. Output only the playback text."
-      );
-    case "offer":
-      return (
-        "The user confirmed this profile:\n" +
-        (body.profile || "") +
-        "\n\nTask: Using the OFFER TEMPLATE, propose ONE sharpened offer sentence for this business. " +
-        "Then run the inline honesty check from your instructions in one or two plain sentences: does the price match what they said in the interview, and is the reason to act now real (not invented)? " +
-        "If something looks weak, say so and ask if they want to adjust or go ahead as is. If it holds up, say briefly that it holds up. " +
-        "Remember: if there is genuinely no urgency, say so honestly rather than inventing a deadline."
-      );
-    case "offer_adjust":
-      return (
-        "The user confirmed this profile:\n" +
-        (body.profile || "") +
-        "\n\nYou previously proposed this offer:\n" +
-        (body.offer || "") +
-        "\n\nThe user wants this changed: " +
-        (body.note || "") +
-        "\n\nTask: Rewrite the offer as ONE sentence using the OFFER TEMPLATE with their change applied. Reply in the same two-part format:\nOFFER: [the single finished offer sentence]\nCHECK: [one or two plain sentences on whether it holds up]"
-      );
-    case "ads":
-      return (
-        "The user confirmed this profile:\n" +
-        (body.profile || "") +
-        "\n\nAnd locked in this offer:\n" +
-        (body.offer || "") +
-        "\n\nTask: Using the THREE ADS TEMPLATE, write exactly three Meta ads for this business, each under 125 words, each with a different hook.\n" +
-        "FACT RULES (these matter more than anything else): every claim must come from the owner's own answers. Stay inside what they said about lead time, delivery or collection, location, price and availability. Never invent urgency, emergencies, same-day or last-minute service, delivery, discounts or guarantees they did not mention. If they said collection only, no ad may mention delivery. If they said five days' notice, no ad may suggest last-minute orders.\n" +
-        "MUST APPEAR IN EVERY AD, in the owner's own terms:\n" + mustInclude(body.answers || []).map((x) => "- " + x).join("\n") + "\n" +
-        "CONDITIONS: each ad must include, in plain words, the conditions a customer needs before responding: service area, what is and is not included, what the customer must provide, notice period, collection or delivery, hours. Pull these from the owner's answers. Work them into each ad naturally and differently: a different sentence in each ad, never the same block of conditions pasted into all three.\n" +
-        "AD 1 must open on the exact thing the owner said stops people from buying, and ANSWER it with facts the owner gave: who they are (for example a one-person business), how long they have done this, and what customers say. Naming the worry without answering it is a failure.\n" +
-        "THE THREE ADS MUST READ DIFFERENTLY: different first lines, different lengths (one short, one medium, one longer), different structure. Do not repeat the same sentences across ads. Each ad ends with the owner's action in natural words, for example \"WhatsApp us\" when the owner said WhatsApp, never \"send a WhatsApp to arrange\".\n" +
-        "STYLE RULES: lead with the specific benefit the owner described, use the words their happy customers actually use, and end every ad with the one action the owner wants (" + ACTION_HINT + "). Banned phrases: look no further, unforgettable, dream, we have got you covered, elevate, game-changing, treat yourself, your one-stop, discover, indulge, perfect for every occasion. No exclamation marks in headlines. No dashes as breaks.\n" +
-        "Format them exactly like this:\n\n" +
-        "AD 1 - PROBLEM\nHeadline: [headline]\n[body]\n\nAD 2 - RESULT\nHeadline: [headline]\n[body]\n\nAD 3 - SOCIAL PROOF\nHeadline: [headline]\n[body]\n\n" +
-        "Output only the three ads in that format, nothing else."
-      );
-    case "ads_fix":
-      return (
-        "The user confirmed this profile:\n" +
-        (body.profile || "") +
-        "\n\nAnd locked in this offer:\n" +
-        (body.offer || "") +
-        "\n\nYou wrote these three ads:\n" +
-        (body.ads || "") +
-        "\n\nA fact check found these problems:\n" +
-        (body.problems || "") +
-        "\n\nMUST APPEAR IN EVERY AD, in the owner's own terms:\n" + mustInclude(body.answers || []).map((x) => "- " + x).join("\n") +
-        "\n\nTask: Rewrite the three ads so every problem above is fixed: remove anything invented (no notice periods, guarantees, safety promises or praise the owner did not give), and make sure each ad includes the key conditions a customer must know (area, what is included, what the customer provides, notice or booking rule, collection or delivery, hours, price) in a natural way, and ends with the action the owner asked for. Keep the same format exactly (AD 1 - PROBLEM / AD 2 - RESULT / AD 3 - SOCIAL PROOF, Headline, body), each under 125 words. Output only the three ads."
-      );
-    case "image":
-      return (
-        "The user confirmed this profile:\n" +
-        (body.profile || "") +
-        "\n\nAnd locked in this offer:\n" +
-        (body.offer || "") +
-        "\n\nTask: Fill in the IMAGE PROMPT TEMPLATE for this business, choosing square or vertical based on where they're most likely to post. Replace every [bracket] with real details from what the user told you. " +
-        "Output the filled-in prompt ready to paste into Meta AI, then on a new line add the tip about AI tools often misspelling text in images."
-      );
-    default:
-      return "Task: Continue helping the user per your instructions.";
-  }
+function errorMessage(err: unknown): string {
+  const m = String((err as Error)?.message || err);
+  if (m.startsWith("rate")) return "The AI is getting too many requests right now. Wait a minute and tap Try again.";
+  if (m.startsWith("json")) return "The AI sent the ads in the wrong shape. Tap Try again.";
+  return "Couldn't reach the AI service. Check your connection and tap Try again.";
 }
 
 export async function POST(req: Request) {
@@ -177,108 +226,99 @@ export async function POST(req: Request) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      {
-        error:
-          "The OPENROUTER_API_KEY environment variable is missing. Add it in Vercel under Settings > Environment Variables, then redeploy.",
-      },
+      { error: "The OPENROUTER_API_KEY environment variable is missing. Add it in Vercel under Settings > Environment Variables, then redeploy." },
       { status: 500 }
     );
   }
 
-  const content = getContentRaw();
-  const systemPrompt =
-    content +
-    "\n\n---\nYou are running inside the IndabaAI web app. Follow the SYSTEM PROMPT, templates and rules above exactly. " +
-    "Reply in plain text only (no markdown symbols like ** or #). Keep replies short and warm.";
-
-  const userMessage =
-    "Interview transcript (the user's own answers):\n\n" +
-    transcript(body.answers || []) +
-    "\n\n" +
-    stageInstruction(body);
+  const system = getSystemPrompt() + "\n\nYou are running inside the IndabaAI web app. Reply with JSON only when asked for JSON. Never add commentary.";
+  const facts = buildFacts(body.answers || {});
 
   try {
-    const ask = (extraInstruction = "") =>
-      callOpenRouter(apiKey, {
-        model: getModelName(),
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage + extraInstruction },
-        ],
-        temperature: 0.7,
-        max_tokens: 1200,
+    if (body.stage === "write") {
+      const started = Date.now();
+      const elapsed = () => (Date.now() - started) / 1000;
+      const raw = (await askJson(apiKey, system, writePrompt(facts, CONCEPTS), 1800)) as { ads?: unknown[] };
+      const list = Array.isArray(raw.ads) ? raw.ads : [];
+      let ads: Ad[] = CONCEPTS.map((c, i) => toAd(list[i], i + 1, c));
+
+      // Code checks, then regenerate only the ads that fail, up to MAX_RETRIES each.
+      let remaining: Issue[] = [];
+      for (let round = 0; round <= MAX_RETRIES; round++) {
+        const issuesByAd = ads.map((ad) => checkAd(ad, facts, ads));
+        if (round === MAX_RETRIES) {
+          remaining = issuesByAd.flat();
+          break;
+        }
+        const failing = ads.filter((_, i) => issuesByAd[i].length > 0);
+        if (failing.length === 0) break;
+        // Stay inside the serverless time limit: stop retrying when time is short.
+        if (elapsed() > 38) {
+          remaining = issuesByAd.flat();
+          break;
+        }
+        const fixed = await Promise.all(
+          failing.map(async (ad) => {
+            try {
+              const r = (await askJson(apiKey, system, writePrompt(facts, [ad.concept], { ad, issues: issuesByAd[ad.id - 1] }), 900)) as { ads?: unknown[] };
+              const one = Array.isArray(r.ads) ? r.ads[0] : r;
+              return toAd(one, ad.id, ad.concept);
+            } catch {
+              return ad;
+            }
+          })
+        );
+        ads = ads.map((ad) => fixed.find((f) => f.id === ad.id) || ad);
+      }
+
+      // One review pass for invented claims. If it finds any, one more targeted rewrite.
+      const invented = elapsed() > 32 ? [] : await reviewInvented(apiKey, system, facts, ads);
+      if (invented.length && elapsed() < 42) {
+        const byAd = new Map<number, Issue[]>();
+        for (const i of invented) byAd.set(i.adId, [...(byAd.get(i.adId) || []), i]);
+        const fixed = await Promise.all(
+          Array.from(byAd.entries()).map(async ([id, issues]) => {
+            const ad = ads.find((x) => x.id === id);
+            if (!ad) return null;
+            try {
+              const r = (await askJson(apiKey, system, writePrompt(facts, [ad.concept], { ad, issues }), 900)) as { ads?: unknown[] };
+              const one = Array.isArray(r.ads) ? r.ads[0] : r;
+              const next = toAd(one, ad.id, ad.concept);
+              // Only keep the rewrite if it still passes the code checks.
+              return checkAd(next, facts, ads.map((x) => (x.id === id ? next : x))).length === 0 ? next : ad;
+            } catch {
+              return ad;
+            }
+          })
+        );
+        ads = ads.map((ad) => fixed.find((f) => f && f.id === ad.id) || ad);
+        remaining = ads.flatMap((ad) => checkAd(ad, facts, ads));
+      }
+
+      // Server log only. Never shown.
+      if (remaining.length) console.warn("Ad checks still failing", remaining);
+
+      return NextResponse.json({
+        ads,
+        issues: remaining,
+        launch: buildLaunchCard(facts),
+        checklist: buildChecklist(facts, ads),
+        whatsappDigits: facts.whatsappDigits,
       });
-    const res = await ask();
-
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      const friendly =
-        res.status === 429
-          ? "The AI is getting too many requests right now (rate limit). Wait a minute and tap Try again."
-          : "The AI service returned an error. Tap Try again in a moment.";
-      console.error("OpenRouter error", res.status, detail);
-      return NextResponse.json({ error: friendly }, { status: 502 });
     }
 
-    const data = await res.json();
-    const text: string | undefined = data?.choices?.[0]?.message?.content;
-    if (!text || !text.trim()) {
-      return NextResponse.json(
-        { error: "The AI sent back an empty reply. Tap Try again." },
-        { status: 502 }
-      );
+    if (body.stage === "creative") {
+      const ads = (body.ads || []).map((ad, i) => toAd(ad, i + 1, ad.concept || CONCEPTS[i]));
+      if (ads.length === 0) return NextResponse.json({ error: "No ads to plan pictures for." }, { status: 400 });
+      const raw = (await askJson(apiKey, system, creativePrompt(facts, ads), 2200)) as { creatives?: unknown[] };
+      const list = Array.isArray(raw.creatives) ? raw.creatives : [];
+      const creatives: Creative[] = ads.map((ad, i) => toCreative(list.find((c) => Number((c as { id?: number })?.id) === ad.id) ?? list[i], ad.id));
+      return NextResponse.json({ creatives });
     }
 
-    let out = text.trim();
-
-    if (body.stage === "profile" || body.stage === "profile_fix") {
-      // The chat shows the playback with its question; the copy text keeps only the profile.
-      const clean = out
-        .replace(/\s*(Did (I|we) get that right|Is that right|Does that sound right|Anything off|Did we get it right)[^\n]*$/i, "")
-        .replace(/\bHere'?s what (I|we)'?ve got:?\s*/i, "")
-        .trim();
-      return NextResponse.json({ text: out, clean });
-    }
-
-    if (body.stage === "offer" || body.stage === "offer_adjust") {
-      // Keep only the finished sentence in the offer; the check goes to the chat.
-      const m = out.match(/OFFER:\s*([\s\S]*?)(?:\n+\s*(?:CHECK|Inline honesty check|Honesty check):?\s*([\s\S]*))?$/i);
-      if (m) {
-        const offer = m[1].trim().replace(/\s*\n+\s*/g, " ");
-        const check = (m[2] || "").trim();
-        return NextResponse.json({ text: offer, note: check });
-      }
-    }
-
-    if (body.stage === "ads" || body.stage === "ads_fix") {
-      const hasAll = /AD 1/i.test(out) && /AD 2/i.test(out) && /AD 3/i.test(out);
-      if (!hasAll) {
-        return NextResponse.json({ error: "The AI sent the ads in the wrong shape. Tap Try again." }, { status: 502 });
-      }
-      // Drop anything the model wrote before "AD 1" or after the third ad.
-      out = out.slice(out.search(/AD 1/i));
-      const must = mustInclude(body.answers || []);
-      if (body.stage === "ads") {
-        const problems = await factCheck(apiKey, transcript(body.answers || []), out, must);
-        if (problems) {
-          return NextResponse.json({ text: out, problems });
-        }
-      }
-      if (body.stage === "ads_fix") {
-        // Check the rewrite too. If anything is still off, tell the owner plainly.
-        const remaining = await factCheck(apiKey, transcript(body.answers || []), out, must);
-        if (remaining) {
-          return NextResponse.json({ text: out, warning: "We checked these ads twice against what you told us and a few details may still not match. Please read each ad against your own facts before posting." });
-        }
-      }
-    }
-
-    return NextResponse.json({ text: out });
+    return NextResponse.json({ error: "Unknown stage." }, { status: 400 });
   } catch (err) {
-    console.error("OpenRouter request failed", err);
-    return NextResponse.json(
-      { error: "Couldn't reach the AI service. Check your connection and tap Try again." },
-      { status: 502 }
-    );
+    console.error("Ads route failed", err);
+    return NextResponse.json({ error: errorMessage(err) }, { status: 502 });
   }
 }
