@@ -193,7 +193,15 @@ export function checkAd(ad: Ad, facts: Facts, others: Ad[]): Issue[] {
   }
 
   // No phone numbers or links in the copy
-  if (/\b0\d{2}[ -]?\d{3}[ -]?\d{4}\b|\+27|https?:\/\/|www\./i.test(copyText)) push("copy", "contains a phone number or link, the button carries it");
+  if (/\b0\d{2}[ -]?\d{3}[ -]?\d{4}\b|\+27|https?:\/\/|www\.|\b[a-z0-9-]+\.(co\.za|com|org|net|africa|shop|online)\b/i.test(copyText)) push("copy", "contains a phone number, address or link; leave it out, the button carries it");
+
+  // The deal: the first rand amount in the offer must appear in the primary text or headline
+  const offerAmount = (facts.answers.offer || "").match(/R\s?\d[\d ,]*/i);
+  if (offerAmount) {
+    const amt = offerAmount[0].replace(/[ ,]/g, "").toUpperCase();
+    const norm = (t: string) => t.replace(/[ ,]/g, "").toUpperCase();
+    if (!norm(ad.primary).includes(amt) && !norm(ad.headline).includes(amt)) push("primary text", `the deal (${offerAmount[0].trim()}) must appear in the primary text or headline`);
+  }
 
   // Urgency only when real
   if (!facts.hasUrgency && URGENCY_WORDS.test(copyText)) push("urgency", "urgency words with no real reason to act now");
@@ -291,9 +299,9 @@ export function buildLaunchCard(facts: Facts): LaunchLine[] {
     {
       title: "Audience",
       text:
-        "Keep the audience broad and let Meta's Advantage+ settings choose placements. Set location only" +
-        (area ? `: ${area}` : "") +
-        " plus a radius you can serve. The words and picture in each ad do the targeting, so you do not need to add interests.",
+        "Keep the audience broad and let Meta's Advantage+ settings choose placements. Set location to where your customers are" +
+        (area ? ` (you said: ${area})` : "") +
+        ". Only the places, not the age or gender: the words and picture in each ad do that targeting, so you do not need to add interests.",
     },
     {
       title: "Ads",

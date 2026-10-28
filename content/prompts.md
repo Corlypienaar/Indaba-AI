@@ -77,7 +77,8 @@ For each ad also write:
 - Use ONLY the facts provided. Don't invent numbers, reviews, results or deadlines. If a key fact is missing and the ad cannot be written honestly without it, write [NEEDED: ...] in that field; otherwise leave the point out.
 - No false urgency or vague claims ("loved by thousands", "best in SA"). If answer 9 is none, use no urgency words at all.
 - Plain words with a South African feel. Never say "cheapest".
-- The destination must match the ad's promise exactly. Never put a phone number or link in the copy; the button carries it.
+- The destination must match the ad's promise exactly. Never put a phone number, website address or link in the copy; the button carries it. Say "Shop now", "Book online", "WhatsApp us" or "Call us" instead.
+- The price or offer from answer 6 appears in every primary text or headline.
 - Every primary text ends with the action in plain words (WhatsApp us, Call us, Book online, Shop online, Visit us), matching answer 8.
 - Ad 1's first sentence is a question ending in "?", shaped as [who] plus [their frustration]. For example: "Pretoria East homeowner, geyser burst and water everywhere?" Do not just put a question mark on a statement.
 - If answer 9 gives a real reason to act now, use it in at least one ad, in the owner's words. If it is none, use no urgency words at all.

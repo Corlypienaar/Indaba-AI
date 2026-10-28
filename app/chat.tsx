@@ -73,7 +73,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
 
   function showHelp() {
     if (!currentQ) return;
-    addApp(currentQ.hint ? `For example: "${currentQ.hint}". A rough answer in your own words is fine.` : "A rough answer in your own words is enough.");
+    addApp(currentQ.hint ? `For example, ${currentQ.hint}. A rough answer in your own words is fine.` : "A rough answer in your own words is enough.");
     setHelpShown(true);
   }
 
