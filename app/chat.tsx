@@ -564,16 +564,6 @@ function AdCard({ ad, issues, whatsappDigits }: { ad: Ad; issues: Issue[]; whats
         </div>
       </div>
       <p className="ad-meta">{opening}</p>
-      {issues.length > 0 && (
-        <div className="ad-check">
-          <b>Worth a look before you post:</b>
-          {issues.map((i, n) => (
-            <div key={n}>
-              {i.field}: {i.reason}.
-            </div>
-          ))}
-        </div>
-      )}
       <Field label="Primary text" value={ad.primary} limit={LIMITS.primaryMax} keyLimit={LIMITS.primaryKey} />
       <Field label="Reels primary text" value={ad.reels} limit={LIMITS.reels} />
       <Field label="Headline" value={ad.headline} limit={LIMITS.headline} />
