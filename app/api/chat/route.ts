@@ -68,9 +68,11 @@ function writePrompt(facts: Facts, concepts: Concept[], fixing?: { ad: Ad; issue
     (facts.contactMethod === "whatsapp"
       ? "\nAlso write whatsappGreeting for each ad: the first message the owner sends when someone messages from that ad. Start with a greeting and thanks, repeat the ad's offer in one sentence, then ask one question to move the sale along. Never include a phone number in it."
       : "\nLeave whatsappGreeting empty.") +
-    "\n\n=== OUTPUT ===\nReturn JSON only, no prose before or after, exactly in this shape, with one object per ad (ids 1, 2, 3 for problem, proof, curiosity):\n" +
+    "\n\n=== OUTPUT ===\nReturn JSON only, no prose before or after, exactly in this shape:\n" +
     schema(facts) +
-    (concepts.length === 3 ? "" : `\nWrite only the "${concepts[0]}" ad.`);
+    (concepts.length === 3
+      ? "\nOne object per ad (ids 1, 2, 3 for problem, proof, curiosity)."
+      : `\nWrite ONLY ad ${CONCEPTS.indexOf(concepts[0]) + 1}, the "${concepts[0]}" ad, with id ${CONCEPTS.indexOf(concepts[0]) + 1}. One object in the "ads" list.`);
 
   if (!fixing) return base;
   return (
@@ -165,9 +167,14 @@ export async function POST(req: Request) {
   const elapsed = () => (Date.now() - started) / 1000;
 
   try {
-    const raw = (await askJson(apiKey, system, writePrompt(facts, CONCEPTS), 3000)) as { ads?: unknown[] };
-    const list = Array.isArray(raw.ads) ? raw.ads : [];
-    let ads: Ad[] = CONCEPTS.map((c, i) => toAd(list.find((x) => Number((x as { id?: number })?.id) === i + 1) ?? list[i], i + 1, c));
+    // One call per concept, in parallel: faster than one big call, and each ad gets full attention.
+    let ads: Ad[] = await Promise.all(
+      CONCEPTS.map(async (c, i) => {
+        const raw = (await askJson(apiKey, system, writePrompt(facts, [c]), 1400)) as { ads?: unknown[] };
+        const one = Array.isArray(raw.ads) ? raw.ads[0] : raw;
+        return toAd(one, i + 1, c);
+      })
+    );
 
     // Code checks, then regenerate only the ads that fail, up to MAX_RETRIES each.
     let remaining: Issue[] = [];

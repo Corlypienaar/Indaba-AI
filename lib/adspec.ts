@@ -207,6 +207,27 @@ export function checkAd(ad: Ad, facts: Facts, others: Ad[]): Issue[] {
     if (!norm(ad.primary).includes(amt) && !norm(ad.headline).includes(amt)) push("primary text", `the deal (${offerAmount[0].trim()}) must appear in the primary text or headline`);
   }
 
+  // The worry (objection) may only be answered with facts the owner gave. "No call-out fee" or
+  // "free delivery" is invented when no other answer mentions that thing.
+  const objection = (facts.answers.objection || "").toLowerCase();
+  if (objection) {
+    const otherText = Object.keys(facts.answers)
+      .filter((k) => k !== "objection")
+      .map((k) => (facts.answers[k] || "").toLowerCase())
+      .join(" ");
+    const keyWords = objection
+      .replace(/[^a-z0-9' -]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 3 && !/^(there|does|will|what|when|where|which|about|your|take|long|really|actually|have|with|from|this|that|they|them|much|many|cost|price)$/.test(w));
+    for (const w of keyWords) {
+      const claimRe = new RegExp(`\\b(no|free|zero|without|never)\\s+(\\w+[ -]){0,2}${w.replace(/[-]/g, "[- ]?")}|\\b${w.replace(/[-]/g, "[- ]?")}[ -]free\\b`, "i");
+      if (claimRe.test(copyText) && !otherText.includes(w.replace(/-/g, " ")) && !otherText.includes(w)) {
+        push("claims", `answers the customer's worry with something the owner did not say ("${copyText.match(claimRe)?.[0]}"); use the offer instead`);
+        break;
+      }
+    }
+  }
+
   // Urgency only when real
   if (!facts.hasUrgency && URGENCY_WORDS.test(copyText)) push("urgency", "urgency words with no real reason to act now");
 
