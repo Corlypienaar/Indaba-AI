@@ -84,7 +84,13 @@ function conceptBrief(concept: Concept, facts: Facts): string {
     case "proof":
       return (
         "CONCEPT 2, proof and result. Open with " +
-        (a.quote ? `the customer's exact quote in quotation marks: "${a.quote.trim()}"` : a.proof ? `the checkable proof: ${a.proof.trim()}` : "the result customers get") +
+        (a.quote
+          ? a.quote.trim().split(/\s+/).length > 8
+            ? `the strongest short part of the customer's quote, word for word and in quotation marks (the full quote is too long for an ad, so pick the best 4 to 8 consecutive words from it): "${a.quote.trim()}"`
+            : `the customer's exact quote in quotation marks: "${a.quote.trim()}"`
+          : a.proof
+            ? `the checkable proof: ${a.proof.trim()}`
+            : "the result customers get") +
         (a.proof && a.quote ? `. Then add the proof: ${a.proof.trim()}` : "") +
         ". Then the offer with price and WhatsApp to book. Message: trust."
       );
@@ -209,7 +215,7 @@ function creativePrompt(facts: Facts, ads: Ad[]): string {
     "- videoScript: a 15 second vertical video the owner can film on a phone. Four lines: 0 to 3 seconds the hook as on-screen text, 3 to 7 seconds the problem or promise, 7 to 12 seconds show the work or result, 12 to 15 seconds the offer with price and \"WhatsApp us\". Note that captions must be burned in.\n" +
     "- whatsappGreeting: the first message the owner sends when someone messages from this ad. Start with a greeting and thanks, repeat the ad's offer and price in one sentence, then ask one question to move the booking along" +
     (a.contact ? `, and mention the rules the owner gave where they matter: ${a.contact.trim()}` : "") +
-    ". Example style: \"Hi, thanks for messaging about the R650 geyser call-out. Which area are you in, and when suits you?\"\n" +
+    ". Name the offer, never a hook or a number of years. Never include a phone number, they are already chatting to it. Example style: \"Hi, thanks for messaging about the R650 geyser call-out. Which area are you in, and when suits you?\"\n" +
     "Use only the facts. No invented details. No dashes as breaks.\n\nReturn JSON only, exactly in this shape:\n" +
     JSON.stringify({
       creatives: [

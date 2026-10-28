@@ -261,7 +261,12 @@ export function toCreative(raw: unknown, fallbackId: number): Creative {
     imagePrompt45: str(r.imagePrompt45 ?? r.image_prompt_45).trim(),
     imagePrompt916: str(r.imagePrompt916 ?? r.image_prompt_916).trim(),
     videoScript: str(r.videoScript ?? r.video_script).trim(),
-    whatsappGreeting: tidy(str(r.whatsappGreeting ?? r.whatsapp_greeting)),
+    whatsappGreeting: tidy(str(r.whatsappGreeting ?? r.whatsapp_greeting))
+      .replace(/,?\s*(please\s+)?(call|phone)( or WhatsApp)?\s*(us\s*)?(on\s*)?(\+?\d[\d ]{7,}\d)\s*\??/gi, "?")
+      .replace(/\+?\d{2,3}[ -]?\d{3}[ -]?\d{4}/g, "")
+      .replace(/\s+([,.?])/g, "$1")
+      .replace(/\?\s*\?/g, "?")
+      .trim(),
   };
 }
 
