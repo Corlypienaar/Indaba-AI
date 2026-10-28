@@ -97,15 +97,74 @@ function conceptBrief(concept: Concept, facts: Facts): string {
   }
 }
 
+// A complete worked example for a different business. Llama copies the STYLE of this,
+// never the facts. Every line here is inside the limits.
+const EXAMPLE = {
+  ads: [
+    {
+      id: 1,
+      concept: "problem",
+      hook: "Geyser burst again in Pretoria East?",
+      primary: [
+        "Geyser burst again in Pretoria East? A licensed plumber at your door for R650, parts quoted before we start. WhatsApp us.",
+        "Geyser burst again? We are in Pretoria East and usually at your door within the hour. R650 call-out. WhatsApp us now.",
+        "Geyser burst again? 15 years fixing Pretoria East geysers, 4.8 stars from 120 reviews. R650 call-out. WhatsApp us.",
+      ],
+      headline: "Plumber at your door, R650",
+      description: "Parts quoted first",
+      cta: "Send WhatsApp message",
+      onImage: "Geyser burst again?",
+      claims: [
+        { claim: "R650 call-out", source: "offer" },
+        { claim: "parts quoted before we start", source: "whyyou" },
+        { claim: "15 years, 4.8 stars from 120 reviews", source: "proof" },
+      ],
+    },
+    {
+      id: 2,
+      concept: "proof",
+      hook: "\"Fixed our geyser in under an hour, no mess\"",
+      primary: [
+        "\"Fixed our geyser in under an hour, no mess.\" 4.8 stars from 120 Pretoria East homes. R650 call-out. WhatsApp us to book.",
+        "\"Fixed our geyser in under an hour, no mess.\" Same-area plumber, usually there within the hour. R650 call-out. WhatsApp us.",
+        "\"Fixed our geyser in under an hour, no mess.\" 15 years, 120 reviews, 4.8 stars. R650 call-out in Pretoria East. WhatsApp us.",
+      ],
+      headline: "Fixed within the hour",
+      description: "4.8 stars, 120 reviews",
+      cta: "Send WhatsApp message",
+      onImage: "Fixed in under an hour",
+      claims: [{ claim: "customer quote", source: "quote" }, { claim: "4.8 stars, 120 reviews, 15 years", source: "proof" }],
+    },
+    {
+      id: 3,
+      concept: "curiosity",
+      hook: "Switching your geyser off does not save money",
+      primary: [
+        "Switching the geyser off at night does not save money. A leaking valve costs you. R650 check in Pretoria East. WhatsApp us.",
+        "Think your geyser is fine because it still gets hot? A slow leak shows on the bill first. R650 call-out. WhatsApp us today.",
+        "The geyser myth that costs Pretoria East homes: switching it off saves money. Ask us why not. R650 call-out. WhatsApp us.",
+      ],
+      headline: "The geyser myth, busted",
+      description: "No obligation quote first",
+      cta: "Send WhatsApp message",
+      onImage: "The geyser myth, busted",
+      claims: [{ claim: "switching off does not save money", source: "myth" }, { claim: "R650 call-out", source: "offer" }],
+    },
+  ],
+};
+
 function writePrompt(facts: Facts, concepts: Concept[], fixing?: { ad: Ad; issues: Issue[] }): string {
   const base =
     "FACTS the owner gave (use only these, nothing else):\n" +
     factsText(facts) +
     "\n\nTASK: write Meta ads (Click-to-WhatsApp) for this business.\n" +
     concepts.map((c) => conceptBrief(c, facts)).join("\n") +
+    "\n\nHERE IS THE STANDARD. This is a finished example for a different business (a plumber). Copy its style, structure and quality exactly. Do not copy any of its facts:\n" +
+    JSON.stringify(EXAMPLE) +
     "\n\nRULES\n" +
-    "- Rewrite the owner's answers as customer-facing copy in plain South African English. Never paste them as they are, except the customer quote in quotation marks (proof concept only).\n" +
-    "- Name the customer or the area in the hook or the first line of every ad.\n" +
+    "- Write like a good local marketer talking to a customer: short full sentences, each ending in a full stop or question mark. Never a comma list of facts. Every primary text must be 2 to 4 sentences and 90 to 125 characters.\n" +
+    "- Rewrite the owner's answers as customer-facing copy in plain South African English. Never paste an answer as it is, except the customer quote in quotation marks (proof concept only).\n" +
+    "- The hook is a full line a customer would stop for: a question about their problem, the quote, or the myth stated plainly. Never a label like \"Working women\" or \"Trusted braids\". Name the customer or the area in the hook or the first sentence of every ad.\n" +
     "- Each primary text: hook, then benefit, proof, the price and the action. The three variants of one ad must each make a different argument: variant 1 the price and what is included, variant 2 speed or convenience, variant 3 proof. Every variant must contain the price and the word WhatsApp. Max 125 characters each. Count carefully.\n" +
     "- Headline max 27 characters: the offer, or an answer to a common objection. Description max 27 characters: a reassurance such as what is included.\n" +
     "- onImage: 3 to 7 words, the hook or the offer.\n" +
@@ -146,11 +205,11 @@ function creativePrompt(facts: Facts, ads: Ad[]): string {
     "- imagePrompt45: a prompt to paste into Meta AI for a 4:5 (1080 x 1350) feed image. Describe a real-looking local South African person and the actual work or result for this business" +
     (a.area ? ` in ${a.area.trim()}` : "") +
     ", natural light, phone-photo feel, one focal point, no text in the image, and keep the top 14 percent and bottom 35 percent of the frame simple so text can be added later. A different subject per ad.\n" +
-    "- imagePrompt916: the same scene for a 9:16 (1080 x 1920) Reels or Stories image, with the subject in the middle and the top and bottom clear.\n" +
+    "- imagePrompt916: a complete, self-contained prompt (never \"the same scene\") for a 9:16 (1080 x 1920) Reels or Stories image of the same subject, framed taller, subject in the middle, top and bottom clear.\n" +
     "- videoScript: a 15 second vertical video the owner can film on a phone. Four lines: 0 to 3 seconds the hook as on-screen text, 3 to 7 seconds the problem or promise, 7 to 12 seconds show the work or result, 12 to 15 seconds the offer with price and \"WhatsApp us\". Note that captions must be burned in.\n" +
-    "- whatsappGreeting: 1 or 2 lines the owner sends when someone messages from this ad. It repeats the ad's offer and price word for word, then asks one question to move the booking along" +
-    (a.contact ? `, staying inside these rules: ${a.contact.trim()}` : "") +
-    ".\n" +
+    "- whatsappGreeting: the first message the owner sends when someone messages from this ad. Start with a greeting and thanks, repeat the ad's offer and price in one sentence, then ask one question to move the booking along" +
+    (a.contact ? `, and mention the rules the owner gave where they matter: ${a.contact.trim()}` : "") +
+    ". Example style: \"Hi, thanks for messaging about the R650 geyser call-out. Which area are you in, and when suits you?\"\n" +
     "Use only the facts. No invented details. No dashes as breaks.\n\nReturn JSON only, exactly in this shape:\n" +
     JSON.stringify({
       creatives: [

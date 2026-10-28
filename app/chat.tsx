@@ -738,7 +738,7 @@ function Field({ label, value, limit, wordLimit, noCopy }: { label: string; valu
     <div className="field">
       <div className="field-head">
         <span className="field-label">
-          {label}
+          {label}{" "}
           {limit !== undefined && (
             <span className={`counter${over ? " over" : ""}`}>
               {value.length}/{limit}
