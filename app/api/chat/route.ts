@@ -177,9 +177,9 @@ function writePrompt(facts: Facts, concepts: Concept[], fixing?: { ad: Ad; issue
     "- cta is always \"Send WhatsApp message\".\n" +
     "- Never write a phone number in the copy. The button handles it.\n" +
     "- Every number in the copy must come from the facts. No invented years, counts, ratings, discounts, hours, areas or deadlines.\n" +
-    (facts.hasUrgency ? "- The reason to act now is real, so you may use it, plainly.\n" : "- There is no reason to act now, so use no urgency words at all (no limited, hurry, today only, last chance, only X slots).\n") +
+    (facts.hasUrgency ? "- The reason to act now is real. Use it plainly in at least one variant of every ad, in the owner's own terms.\n" : "- There is no reason to act now, so use no urgency words at all (no limited, hurry, today only, last chance, only X slots).\n") +
     "- The three ads must be three different ideas: different hook, different first line, different headline, different argument. Share as few words as possible between them.\n" +
-    "- No dashes as breaks. No exclamation marks in headlines. No hype words.\n" +
+    "- No dashes as breaks. No exclamation marks in headlines. No hype words. South African spelling (favourite, colour, organise).\n" +
     "- claims: list every factual claim you used and which source key it came from.\n" +
     "\nReturn JSON only, no prose before or after, exactly in this shape:\n" +
     adSchema();
@@ -216,7 +216,7 @@ function creativePrompt(facts: Facts, ads: Ad[]): string {
     "- whatsappGreeting: the first message the owner sends when someone messages from this ad. Start with a greeting and thanks, repeat the ad's offer and price in one sentence, then ask one question to move the booking along" +
     (a.contact ? `, and mention the rules the owner gave where they matter: ${a.contact.trim()}` : "") +
     ". Name the offer, never a hook or a number of years. Never include a phone number, they are already chatting to it. Example style: \"Hi, thanks for messaging about the R650 geyser call-out. Which area are you in, and when suits you?\"\n" +
-    "Use only the facts. No invented details. No dashes as breaks.\n\nReturn JSON only, exactly in this shape:\n" +
+    "Use only the facts. No invented details. No dashes as breaks. South African spelling (favourite, colour). Write the video script as four lines separated by newlines, each starting with the seconds, for example \"0 to 3 seconds:\".\n\nReturn JSON only, exactly in this shape:\n" +
     JSON.stringify({
       creatives: [
         { id: 1, shotList: "...", imagePrompt45: "...", imagePrompt916: "...", videoScript: "...", whatsappGreeting: "..." },
