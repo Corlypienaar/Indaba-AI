@@ -115,7 +115,7 @@ export function cleanAd(ad: Ad): Ad {
 
 const LEAKS = /headline:|primary text|the user\b|interview|holds up|note for dev|placeholder|answer \d/i;
 const URGENCY_WORDS = /\b(limited|hurry|today only|last chance|while stocks last|don'?t miss|before it'?s gone|this week only|only \d+ (slots?|spots?|spaces?)|ends (soon|friday|sunday|today)|act now|book now before)\b/i;
-const VAGUE = /\b(the best|best \w+ in|number one|#1|loved by thousands|quality service|professional service|reliable service|top rated)\b/i;
+const VAGUE = /\b(the best|best \w+ in|number one|#1|loved by thousands|quality service|professional service|reliable service|top rated|trusted \w+|experts?|guaranteed)\b/i;
 const NEEDED = /\[needed:[^\]]*\]/gi;
 
 function words(text: string): Set<string> {

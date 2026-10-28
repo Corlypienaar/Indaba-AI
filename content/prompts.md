@@ -47,9 +47,9 @@ Ad 3, Curiosity/bold claim: Open with the surprising fact or the thing customers
 Who is it for? What is it? Why you? (one specific proof point) What's the deal? How do I get it? Why now? (only if answer 9 gives a real reason)
 
 === FORMAT AND LIMITS (for each ad) ===
-- Primary text: hook line first, then benefit, proof, offer and action. 50 to 150 characters, and the key message must fit in the first 125. Full sentences, never a comma list of facts.
+- Primary text: hook line first, then benefit, proof, offer and action. Aim for 90 to 125 characters (hard limit 150), so the whole message shows on a phone. Two to four full sentences, never a comma list of facts.
 - Reels version of the primary text: max 40 characters.
-- Headline: the offer or an answer to the objection in answer 7. Max 27 characters.
+- Headline: the offer, or an answer to the objection in answer 7 ONLY if the facts give that answer. If the owner did not say what the answer is, use the offer. Max 27 characters.
 - Description: extra reassurance. Max 27 characters.
 - CTA button: choose one from Meta's list to match answer 8 (Send WhatsApp message, Call now, Book now, Shop now, Get quote, Learn more). The same button in all 3 ads.
 - On-screen text: the hook in 3 to 7 words, which also becomes the heading on the image. Ad 1 the customer's problem as a short question, Ad 2 the proof or result, Ad 3 the surprising fact. Never the price; the offer badge carries that.
@@ -75,7 +75,7 @@ TEXT ON THE IMAGE (include in the prompt, with the exact words in quotation mark
 - Keep the very top and bottom of the image and the side edges clear of text and faces, because Meta's buttons and captions cover those areas.
 
 === RULES ===
-- Use ONLY the facts provided. Don't invent numbers, reviews, results or deadlines. If a key fact is missing and the ad cannot be written honestly without it, write [NEEDED: ...] in that field; otherwise leave the point out.
+- Use ONLY the facts provided. Don't invent numbers, reviews, results, deadlines or answers to the customer's worry. Never reverse or contradict what the owner said: if they said "a leaking geyser often just needs a R300 part", the ad says that, not the opposite. If a key fact is missing and the ad cannot be written honestly without it, write [NEEDED: ...] in that field; otherwise leave the point out.
 - No false urgency or vague claims ("loved by thousands", "best in SA"). If answer 9 is none, use no urgency words at all.
 - Plain words with a South African feel. Never say "cheapest".
 - The destination must match the ad's promise exactly. Never put a phone number, website address or link in the copy; the button carries it. Say "Shop now", "Book online", "WhatsApp us" or "Call us" instead.

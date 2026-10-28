@@ -47,7 +47,7 @@ function schema(facts: Facts): string {
       {
         id: 1,
         concept: "problem",
-        primary: "50 to 150 characters, full sentences, hook first",
+        primary: "90 to 125 characters, 2 to 4 full sentences, hook first, ends with the action",
         reels: "max 40 characters",
         headline: "max 27 characters",
         description: "max 27 characters",
@@ -125,7 +125,7 @@ async function reviewInvented(apiKey: string, system: string, facts: Facts, ads:
       factsList +
       "\n\nADS:\n" +
       ads.map((ad) => `AD ${ad.id}: ${ad.primary} | ${ad.reels} | ${ad.headline} | ${ad.description} | ${ad.onScreen} | ${ad.badge}`).join("\n") +
-      "\n\nTASK: you are a strict fact checker. List every claim in the ads that the owner did not say or that contradicts the facts: invented numbers, years, ratings, areas, hours, delivery, discounts, guarantees, praise, urgency or deadlines. Rewording the owner's facts is fine. A [NEEDED: ...] placeholder is fine. Only invention counts.\n" +
+      "\n\nTASK: you are a strict fact checker. List every claim in the ads that the owner did not say or that contradicts the facts: invented numbers, years, ratings, areas, hours, delivery, discounts, guarantees, praise, urgency or deadlines; any claim that reverses or twists what the owner said (for example the owner says a repair often needs only a R300 part and the ad says it needs more than R300); and any answer to the customer's worry (fact 7) that the owner did not give, such as \"no call-out fee\" when the owner never said whether there is one. Rewording the owner's facts is fine. A [NEEDED: ...] placeholder is fine.\n" +
       'Return JSON only: {"invented":[{"ad":1,"text":"the invented words","why":"short reason"}]}. If nothing is invented return {"invented":[]}.';
     const out = (await askJson(apiKey, system, user, 500)) as { invented?: { ad: number; text: string; why: string }[] };
     return (out.invented || [])
@@ -176,7 +176,7 @@ export async function POST(req: Request) {
       if (urgencyMissing(facts, ads)) issuesByAd[0].push({ adId: 1, field: "why now", reason: `use the real reason to act now in this ad, in the owner's words: "${facts.answers.urgency}"` });
       const failing = ads.filter((_, i) => issuesByAd[i].length > 0);
       if (failing.length === 0) break;
-      if (round === MAX_RETRIES || elapsed() > 36) {
+      if (round === MAX_RETRIES || elapsed() > 40) {
         remaining = issuesByAd.flat();
         break;
       }
@@ -195,8 +195,8 @@ export async function POST(req: Request) {
     }
 
     // One review pass for invented claims. If it finds any, one more targeted rewrite.
-    const invented = elapsed() > 32 ? [] : await reviewInvented(apiKey, system, facts, ads);
-    if (invented.length && elapsed() < 42) {
+    const invented = elapsed() > 38 ? [] : await reviewInvented(apiKey, system, facts, ads);
+    if (invented.length && elapsed() < 46) {
       const byAd = new Map<number, Issue[]>();
       for (const i of invented) byAd.set(i.adId, [...(byAd.get(i.adId) || []), i]);
       const fixed = await Promise.all(
