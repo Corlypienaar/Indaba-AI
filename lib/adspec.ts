@@ -164,6 +164,18 @@ export function checkAd(ad: Ad, facts: Facts, others: Ad[]): Issue[] {
   if (!ad.imagePrompt || ad.imagePrompt.length < 200) push("image prompt", "too short to paste into an image tool, write the full standalone paragraph");
   else if (/the business above|answer \d|business details/i.test(ad.imagePrompt)) push("image prompt", "refers to the brief instead of spelling out the details");
 
+  // The hook shape and the action
+  if (ad.concept === "problem" && ad.primary && !/\?/.test(ad.primary.split(/(?<=[.?!])\s/)[0] || "")) push("primary text", "ad 1 must open with the customer's frustration as a question ending in ?");
+  const actionWord: Record<string, RegExp> = {
+    whatsapp: /whatsapp/i,
+    call: /\bcall\b/i,
+    "book online": /\bbook/i,
+    "shop online": /\b(shop|order|buy)\b/i,
+    "visit us": /\b(visit|come|pop in|find us)\b/i,
+  };
+  const actRe = actionWord[facts.contactMethod];
+  if (actRe && ad.primary && !actRe.test(ad.primary)) push("primary text", `must end with the action (${facts.contactMethod === "whatsapp" ? "WhatsApp us" : facts.contactMethod === "call" ? "Call us" : facts.contactMethod === "book online" ? "Book online" : facts.contactMethod === "shop online" ? "Shop online" : "Visit us"})`);
+
   // Same button in every ad
   if (ad.cta.toLowerCase() !== facts.cta.toLowerCase()) push("button", `must be "${facts.cta}" in every ad`);
 
@@ -214,6 +226,16 @@ export function checkAd(ad: Ad, facts: Facts, others: Ad[]): Issue[] {
   }
 
   return issues;
+}
+
+// When the owner gave a real reason to act now, at least one ad must carry it.
+export function urgencyMissing(facts: Facts, ads: Ad[]): boolean {
+  if (!facts.hasUrgency) return false;
+  const want = Array.from(words(facts.answers.urgency || ""));
+  if (want.length === 0) return false;
+  const all = words(ads.map((a) => [a.primary, a.headline, a.description, a.onScreen].join(" ")).join(" "));
+  const hits = want.filter((w) => all.has(w)).length;
+  return hits < Math.min(2, want.length);
 }
 
 // ---------- JSON helpers ----------

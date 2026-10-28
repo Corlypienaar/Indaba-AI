@@ -12,6 +12,7 @@ import {
   checkAd,
   extractJson,
   toAd,
+  urgencyMissing,
 } from "@/lib/adspec";
 
 // This route is the only place the ads tool talks to the AI.
@@ -174,6 +175,7 @@ export async function POST(req: Request) {
     let remaining: Issue[] = [];
     for (let round = 0; round <= MAX_RETRIES; round++) {
       const issuesByAd = ads.map((ad) => checkAd(ad, facts, ads));
+      if (urgencyMissing(facts, ads)) issuesByAd[0].push({ adId: 1, field: "why now", reason: `use the real reason to act now in this ad, in the owner's words: "${facts.answers.urgency}"` });
       const failing = ads.filter((_, i) => issuesByAd[i].length > 0);
       if (failing.length === 0) break;
       if (round === MAX_RETRIES || elapsed() > 36) {
