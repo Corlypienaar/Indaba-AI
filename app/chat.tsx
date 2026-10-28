@@ -185,7 +185,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
     setStage("writing");
     setLoading(true);
     setErrorText("");
-    if (!isRetry) addApp("Writing your three ads now, each opening a different way, and checking every line against what you told us. This takes about half a minute...");
+    addApp(isRetry ? "Writing three new versions..." : "Writing your three ads now, each opening a different way, and checking every line against what you told us. This takes about half a minute...");
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -203,7 +203,7 @@ export default function Chat({ questions }: { questions: Question[] }) {
       setLaunch(data.launch || []);
       setChecklist(data.checklist || []);
       setWhatsappDigits(data.whatsappDigits || "");
-      addApp("Done. Scroll down for your three ads, the image prompts, how to post them and the checklist. Every field has its own copy button.");
+      addApp(isRetry ? "Rewritten. Scroll down for the new versions." : "Done. Scroll down for your three ads, the image prompts, how to post them and the checklist. Every field has its own copy button.");
       setStage("results");
     } catch {
       setErrorText("Couldn't reach the server. Check your connection and tap Try again.");
